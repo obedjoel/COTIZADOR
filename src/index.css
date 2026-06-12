@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@355;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Poppins", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer utilities {
+  @media print {
+    body {
+      background-color: white !important;
+    }
+    body * {
+      visibility: hidden;
+    }
+    #main-cotizador-sheet, #main-cotizador-sheet * {
+      visibility: visible;
+    }
+    #main-cotizador-sheet {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      box-shadow: none;
+    }
+    .no-print {
+      display: none !important;
+    }
+    @page { 
+      size: auto;   
+      margin: 0mm; 
+    }
+  }
+}

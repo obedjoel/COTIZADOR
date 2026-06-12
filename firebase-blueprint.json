@@ -1,0 +1,128 @@
+{
+  "entities": {
+    "Cotizacion": {
+      "title": "Cotizacion",
+      "description": "A single design/print job quotation detailing clients, items, discount tiers, bank transfers, and branding customized values.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unified unique identifier, e.g., 2026-05-00195"
+        },
+        "numero": {
+          "type": "string",
+          "description": "The digital document suffix number"
+        },
+        "prefix": {
+          "type": "string",
+          "description": "Suffix prefix code e.g. YYYY-MM-"
+        },
+        "fecha": {
+          "type": "string",
+          "description": "The date of the design quotation"
+        },
+        "cliente": {
+          "type": "object",
+          "description": "Associated client business data object"
+        },
+        "proyecto": {
+          "type": "string",
+          "description": "The descriptive title of the design project"
+        },
+        "observaciones": {
+          "type": "string",
+          "description": "Important terms, delivery dates, or condition logs"
+        },
+        "igvActivo": {
+          "type": "boolean",
+          "description": "Whether standard local product taxation is applied"
+        },
+        "items": {
+          "type": "array",
+          "description": "Lists of lines containing prices, products and selected amounts"
+        },
+        "subtotal": {
+          "type": "number"
+        },
+        "igv": {
+          "type": "number"
+        },
+        "total": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "moneda": {
+          "type": "string"
+        },
+        "discountPercentage": {
+          "type": "number"
+        },
+        "discountAmount": {
+          "type": "number"
+        },
+        "themeColor": {
+          "type": "string"
+        },
+        "bancoSoles": {
+          "type": "string"
+        },
+        "cciSoles": {
+          "type": "string"
+        },
+        "bancoDolares": {
+          "type": "string"
+        },
+        "cciDolares": {
+          "type": "string"
+        },
+        "detracciones": {
+          "type": "string"
+        },
+        "brandName": {
+          "type": "string"
+        },
+        "brandSubtitle": {
+          "type": "string"
+        },
+        "emisorNombre": {
+          "type": "string"
+        },
+        "emisorRuc": {
+          "type": "string"
+        },
+        "emisorTelefono": {
+          "type": "string"
+        },
+        "emisorEmail": {
+          "type": "string"
+        },
+        "emisorDireccion": {
+          "type": "string"
+        },
+        "taxRate": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "numero",
+        "prefix",
+        "fecha",
+        "cliente",
+        "proyecto",
+        "items",
+        "subtotal",
+        "total"
+      ]
+    }
+  },
+  "firestore": {
+    "/cotizaciones/{cotizacionId}": {
+      "schema": "Cotizacion",
+      "description": "Database collection mapping all active issued quotes stored securely."
+    }
+  }
+}

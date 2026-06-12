@@ -1,0 +1,6 @@
+{
+  "name": "Cotizador Web - ONE estudio gráfico",
+  "description": "Sistema full-stack para la creación, personalización, guardado e historial de cotizaciones de diseño gráfico con exportación PDF.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,63 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Global Safety Net (default deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Secure global helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+    
+    // Dynamic validation schemas safely checking nested types and boundaries
+    function isValidCotizacion(data) {
+      return data.keys().hasAll([
+          'id', 'numero', 'prefix', 'fecha', 'cliente', 'proyecto', 'items', 'subtotal', 'total'
+        ])
+        && data.id is string && data.id.size() <= 100
+        && data.numero is string && data.numero.size() <= 20
+        && data.prefix is string && data.prefix.size() <= 50
+        && data.fecha is string && data.fecha.size() <= 50
+        && data.proyecto is string && data.proyecto.size() <= 300
+        && data.items is list
+        && data.items.size() <= 100
+        && (data.items.size() == 0 || data.items[0] is map)
+        && data.subtotal is number
+        && data.total is number;
+    }
+    
+    // Match definitions for active quote collection
+    match /cotizaciones/{cotizacionId} {
+      allow get: if isValidId(cotizacionId);
+      allow list: if true; // Permit listing previous quotes for history viewing
+      
+      allow create: if isSignedIn() 
+        && isValidId(cotizacionId)
+        && isValidCotizacion(incoming())
+        && incoming().id == cotizacionId;
+        
+      allow update: if isSignedIn()
+        && isValidId(cotizacionId)
+        && isValidCotizacion(incoming())
+        && incoming().id == existing().id;
+        
+      allow delete: if isSignedIn()
+        && isValidId(cotizacionId);
+    }
+  }
+}
