@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { Cotizacion, CotizacionItem, ClientData } from "./types";
+import logoOne from "./logoONEtransparente.png";
 
 // Dynamic Client-side Firebase Firestore initialization helper
 import { initializeApp, getApps, getApp } from "firebase/app";
@@ -51,11 +52,14 @@ const PRODUCT_SUGGESTIONS = [
 ];
 
 const POPULAR_CHIPS = [
-  { label: "+ 💳 Tarjetas", desc: "Tarjetas de presentación couché 400 gr. con acabado plastificado mate", price: 120, unit: "Millar" },
-  { label: "+ 🎨 Logo", desc: "Diseño de Logotipo e Identidad Corporativa (Propuestas gráficas + Paleta de colores + Tipografías + Entregables vectoriales)", price: 350, unit: "Unidad" },
-  { label: "+ 📣 Volantes A5", desc: "Volantes publicitarios formato A5 en papel couché 115 gr. full color de alta calidad", price: 135, unit: "Millar" },
-  { label: "+ 🛡️ Fotochecks", desc: "Fotochecks de PVC de alta duración con cinta sublimada de 20mm con mosquetón (impresión directa)", price: 16, unit: "Unidad" },
-  { label: "+ 📱 Packs Redes", desc: "Diseño y maquetación de 12 plantillas digitales editables para publicaciones de Instagram/Facebook", price: 280, unit: "Unidad" }
+  { label: "+ 💳 Tarjetas", desc: "Tarjetas de presentación couché 400 gr. con acabado plastificado mate", price: 0, unit: "Millar" },
+  { label: "+ 🎨 Logo", desc: "Diseño de Logotipo e Identidad Corporativa (Propuestas gráficas + Paleta de colores + Tipografías + Entregables vectoriales)", price: 0, unit: "Unidad" },
+  { label: "+ 📣 Volantes", desc: "Volantes publicitarios formato A5 en papel couché 115 gr. full color de alta calidad", price: 0, unit: "Millar" },
+  { label: "+ 🛡️ Fotochecks", desc: "Fotochecks de PVC de alta duración con cinta sublimada de 20mm con mosquetón (impresión directa)", price: 0, unit: "Unidad" },
+  { label: "+ 📱 Packs Redes", desc: "Diseño y maquetación de 12 plantillas digitales editables para publicaciones de Instagram/Facebook", price: 0, unit: "Unidad" },
+  { label: "+ 📁 Folders", desc: "Folders institucionales en cartulina Foldcote C16 tintero, troquelado especial y plastificado mate", price: 0, unit: "Ciento" },
+  { label: "+ 🪧 Afiches", desc: "Afiches A3 impresión láser full color en papel couché de 150gr", price: 0, unit: "Ciento" },
+  { label: "+ 🖼️ Banners", desc: "Banner publicitario impreso en lona de 13oz con ollaos esquineros para colgar", price: 0, unit: "Unidad" }
 ];
 
 const CONDICIONES_PRESETS = [
@@ -138,7 +142,7 @@ export default function App() {
   const [showBankSettings, setShowBankSettings] = useState<boolean>(false);
 
   // Database Integration State (Option 3 Implementation)
-  const [dbSource, setDbSource] = useState<"server" | "offline" | "firebase">("offline");
+  const [dbSource, setDbSource] = useState<"server" | "offline" | "firebase" | "gsheets">("offline");
   const [firebaseConfigStr, setFirebaseConfigStr] = useState<string>("");
   const [showDbSettings, setShowDbSettings] = useState<boolean>(false);
 
@@ -288,6 +292,10 @@ export default function App() {
       setFirebaseConfigStr(savedKeys);
     }
 
+    import("./googleAuth").then(({ initAuth }) => {
+      initAuth();
+    }).catch(e => console.error("Could not init google auth", e));
+
     setIsLoaded(true);
   }, []);
 
@@ -376,7 +384,7 @@ export default function App() {
           console.error("Firestore read error:", dbErr);
           showNotification(`Error al leer de Firestore: ${dbErr.message}`, "error");
         }
-      } else if (dbSource === "offline") {
+      } else if (dbSource === "offline" || dbSource === "gsheets") {
         // Pure local persistence
         const offlineHist = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
         setHistoryList(offlineHist);
@@ -466,6 +474,56 @@ export default function App() {
         const nextNum = getNextSuggestedInvoiceNumber(cotizacionPrefix, hist);
         setCotizacionNumero(nextNum);
         showNotification(`Cotización ${quoteId} guardada. El número de cotización cambió aleatoriamente a la N° ${nextNum}.`, "success");
+      } else if (dbSource === "gsheets") {
+        // Authenticate with Google
+        const { getAccessToken, googleSignIn } = await import("./googleAuth");
+        const { createSpreadsheet, appendRow } = await import("./googleSheetsService");
+        
+        let token = await getAccessToken();
+        if (!token) {
+          try {
+            const authRes = await googleSignIn();
+            if (authRes) token = authRes.accessToken;
+          } catch (e) {
+            showNotification("Requiere iniciar sesión en Google para guardar en Sheets.", "error");
+            setLoading(false);
+            return;
+          }
+        }
+        
+        if (token) {
+          let sheetId = localStorage.getItem("one_gsheets_id");
+          if (!sheetId) {
+            showNotification("Creando hoja de cálculo inicial...", "info");
+            sheetId = await createSpreadsheet(token);
+            localStorage.setItem("one_gsheets_id", sheetId);
+          }
+          
+          await appendRow(sheetId, token, [
+            payload.id,
+            payload.fecha,
+            payload.cliente.nombre,
+            payload.cliente.ruc,
+            payload.proyecto,
+            payload.subtotal,
+            payload.igv,
+            payload.total,
+            payload.moneda,
+            "Guardado Exitosamente"
+          ]);
+          
+          // Keep local history
+          let hist = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
+          const idx = hist.findIndex((c: any) => c.id === payload.id);
+          if (idx > -1) hist[idx] = payload;
+          else hist.unshift(payload);
+          localStorage.setItem("one_hist_checkpoint1", JSON.stringify(hist));
+          
+          const nextNum = getNextSuggestedInvoiceNumber(cotizacionPrefix, hist);
+          setCotizacionNumero(nextNum);
+          
+          showNotification(`Cotización ${quoteId} sincronizada. Vista disponible en Google Sheets.`, "success");
+        }
       } else if (dbSource === "offline") {
         // Pure local offline directory saving
         let hist = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
@@ -564,7 +622,7 @@ export default function App() {
             let offlineHist = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
             offlineHist = offlineHist.filter((q: any) => q.id !== id);
             localStorage.setItem("one_hist_checkpoint1", JSON.stringify(offlineHist));
-          } else if (dbSource === "offline") {
+          } else if (dbSource === "offline" || dbSource === "gsheets") {
             setHistoryList(prev => prev.filter(q => q.id !== id));
             let offlineHist = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
             offlineHist = offlineHist.filter((q: any) => q.id !== id);
@@ -1154,6 +1212,34 @@ export default function App() {
                     <Cloud className="w-3.5 h-3.5" />
                     <span>Nube Firebase</span>
                   </button>
+
+                  <button
+                    onClick={async () => {
+                      setDbSource("gsheets");
+                      localStorage.setItem("one_db_source", "gsheets");
+                      showNotification("Servicio de Google Sheets seleccionado.", "info");
+                      
+                      // Auto-trigger sign-in if not signed in
+                      const { initAuth, googleSignIn, getAccessToken } = await import("./googleAuth");
+                      const token = await getAccessToken();
+                      if (!token) {
+                        try {
+                          await googleSignIn();
+                          showNotification("Autenticación con Google exitosa.", "success");
+                        } catch (err) {
+                           showNotification("Error de autenticación con Google.", "error");
+                        }
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded font-bold transition-all cursor-pointer flex items-center gap-1.5 text-[11px] ${
+                      dbSource === "gsheets"
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>Google Sheets</span>
+                  </button>
                 </div>
               </div>
 
@@ -1243,14 +1329,11 @@ export default function App() {
         className="max-w-[900px] w-full mx-auto bg-white rounded-lg overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all flex flex-col border border-slate-200"
       >
         
-        {/* ENCABEZADO SIN LOGO (Dark slate with custom Theme line) */}
-        <div className="bg-[#040D16] text-white p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b-[4px] border-solid theme-border-b">
+        {/* ENCABEZADO CON LOGO */}
+        <div className="print-fixed-header bg-[#040D16] text-white p-6 sm:p-5 print:p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b-[4px] border-solid theme-border-b">
           <div className="flex flex-col mb-4 sm:mb-0">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 theme-bg rounded shrink-0 animate-pulse"></div>
-              <span className="text-xl font-extrabold tracking-tight text-white">ONE estudio gráfico</span>
-            </div>
-            <span className="text-[10px] tracking-widest uppercase theme-text font-semibold mt-1">ESTUDIO GRÁFICO</span>
+            {/* The white filter or drop-shadow can be added if needed, but since it's transparent we'll just constrain its height */}
+            <img src={logoOne} alt="ONE Espacio Creativo Logo" className="h-16 print:h-12 w-auto object-contain" />
           </div>
 
           <div className="text-left sm:text-right text-xs space-y-0.5 text-slate-300">
@@ -1262,33 +1345,34 @@ export default function App() {
           </div>
         </div>
 
-        {/* SECCIÓN FECHA Y NÚMERO */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-6 py-3.5 bg-slate-100 border-b border-slate-200 gap-2">
-          <div>
-            <p className="text-xs text-slate-600 font-medium select-none">
-              <strong className="text-slate-800">Fecha de Emisión:</strong> {fechaActual || "Cargando..."}
-            </p>
+        <div className="print-body-content flex-1 max-w-[900px] w-full mx-auto">
+          {/* SECCIÓN FECHA Y NÚMERO */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-6 py-3.5 print:py-1 bg-slate-100 border-b border-slate-200 gap-2">
+            <div>
+              <p className="text-xs text-slate-600 font-medium select-none">
+                <strong className="text-slate-800">Fecha de Emisión:</strong> {fechaActual || "Cargando..."}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs theme-text font-bold">
+              <span>N° COTIZACIÓN:</span>
+              <span className="font-extrabold select-none">{cotizacionPrefix}</span>
+              {previewMode ? (
+                <span className="font-extrabold font-mono">{cotizacionNumero}</span>
+              ) : (
+                <input 
+                  type="text" 
+                  value={cotizacionNumero}
+                  onChange={(e) => {
+                    setCotizacionNumero(e.target.value);
+                  }}
+                  className="w-16 text-xs theme-text font-bold font-mono placeholder-slate-400 border-b border-dashed theme-border focus:outline-none focus:border-solid bg-transparent px-1 py-0 text-center"
+                />
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 text-xs theme-text font-bold">
-            <span>N° COTIZACIÓN:</span>
-            <span className="font-extrabold select-none">{cotizacionPrefix}</span>
-            {previewMode ? (
-              <span className="font-extrabold font-mono">{cotizacionNumero}</span>
-            ) : (
-              <input 
-                type="text" 
-                value={cotizacionNumero}
-                onChange={(e) => {
-                  setCotizacionNumero(e.target.value);
-                }}
-                className="w-16 text-xs theme-text font-bold font-mono placeholder-slate-400 border-b border-dashed theme-border focus:outline-none focus:border-solid bg-transparent px-1 py-0 text-center"
-              />
-            )}
-          </div>
-        </div>
 
-        {/* MAIN BODY OF THE DOCUMENT */}
-        <div className="p-6 sm:p-8 space-y-6">
+          {/* MAIN BODY OF THE DOCUMENT */}
+          <div className="p-6 sm:p-8 print:p-3 space-y-6 print:space-y-2">
 
           {/* DATOS CLIENTE */}
           <div className="space-y-3">
@@ -1362,7 +1446,7 @@ export default function App() {
 
                 <div>
                   {previewMode ? (
-                    <div className="py-2.5 px-1 border-b border-transparent text-[#0F1829]">
+                    <div className="py-2.5 print:py-0 px-1 border-b border-transparent text-[#0F1829]">
                       <p className="text-[10px] text-slate-400 font-bold uppercase select-none">RUC / DNI</p>
                       <p className="font-semibold text-slate-800 font-mono select-all">{cliente.ruc || "-(Sin especificar)-"}</p>
                     </div>
@@ -1382,10 +1466,10 @@ export default function App() {
               </div>
 
               {/* Column 2 info inputs */}
-              <div className="space-y-3 text-xs">
+              <div className="space-y-3 text-xs print:space-y-1">
                 <div>
                   {previewMode ? (
-                    <div className="py-2.5 px-1 border-b border-transparent text-[#0F1829]">
+                    <div className="py-2.5 print:py-0 px-1 border-b border-transparent text-[#0F1829]">
                       <p className="text-[10px] text-slate-400 font-bold uppercase select-none">Nombre de Contacto</p>
                       <p className="font-semibold text-slate-800 select-all">{cliente.contacto || "-(Sin especificar)-"}</p>
                     </div>
@@ -1405,7 +1489,7 @@ export default function App() {
 
                 <div>
                   {previewMode ? (
-                    <div className="py-2.5 px-1 border-b border-transparent text-[#0F1829]">
+                    <div className="py-2.5 print:py-0 px-1 border-b border-transparent text-[#0F1829]">
                       <p className="text-[10px] text-slate-400 font-bold uppercase select-none">Teléfono / Celular</p>
                       <p className="font-semibold text-slate-800 select-all">{cliente.telefono || "-(Sin especificar)-"}</p>
                     </div>
@@ -1434,7 +1518,7 @@ export default function App() {
             </h2>
             <div>
               {previewMode ? (
-                <p className="text-sm font-extrabold theme-text bg-slate-50 py-3 px-4 rounded-lg select-all inline-block uppercase leading-snug">
+                <p className="text-sm font-extrabold theme-text bg-slate-50 py-3 print:py-1 px-4 print:px-2 rounded-lg select-all inline-block uppercase leading-snug">
                   {proyecto || "-(Sujeto a Proyecto o Campaña Publicitaria)-"}
                 </p>
               ) : (
@@ -1478,12 +1562,12 @@ export default function App() {
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 select-none">
-                    <th className="p-3 font-semibold text-slate-500 w-[5%] text-center font-sans text-[10px] uppercase">Ítem</th>
-                    <th className="p-3 font-semibold text-slate-500 w-[50%] font-sans text-[10px] uppercase">Descripción</th>
-                    <th className="p-3 font-semibold text-slate-500 w-[8%] text-center font-sans text-[10px] uppercase">Cant.</th>
-                    <th className="p-3 font-semibold text-slate-500 w-[12%] font-sans text-[10px] uppercase">Unidad</th>
-                    <th className="p-3 font-semibold text-slate-500 w-[13%] text-right font-sans text-[10px] uppercase">P. Unit.</th>
-                    <th className="p-3 font-semibold text-slate-500 w-[15%] text-right font-sans text-[10px] uppercase">Subtotal</th>
+                    <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[5%] text-center font-sans text-[10px] uppercase">Ítem</th>
+                    <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[50%] font-sans text-[10px] uppercase">Descripción</th>
+                    <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[8%] text-center font-sans text-[10px] uppercase">Cant.</th>
+                    <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[12%] font-sans text-[10px] uppercase">Unidad</th>
+                    <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[13%] text-right font-sans text-[10px] uppercase">P. Unit.</th>
+                    <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[15%] text-right font-sans text-[10px] uppercase">Subtotal</th>
                     {!previewMode && <th className="p-3 w-[12%]"></th>}
                   </tr>
                 </thead>
@@ -1500,10 +1584,10 @@ export default function App() {
                         } transition-all group`}
                       >
                         {/* Number */}
-                        <td className="p-3 text-center text-slate-400 font-mono font-medium">{rowNumber}</td>
+                        <td className="p-3 print:p-1.5 text-center text-slate-400 font-mono font-medium">{rowNumber}</td>
  
                         {/* Product / service description */}
-                        <td className="p-3">
+                        <td className="p-3 print:p-1.5">
                           {item.confirmed || previewMode ? (
                             <span className="block text-slate-850 py-1 select-all font-medium whitespace-normal leading-relaxed text-[11.5px]">
                               {item.producto || "-(Concepto de servicio vacío)-"}
@@ -1528,7 +1612,7 @@ export default function App() {
                         </td>
  
                         {/* Quantity */}
-                        <td className="p-3 text-center">
+                        <td className="p-3 print:p-1.5 text-center">
                           {item.confirmed || previewMode ? (
                             <span className="font-semibold font-mono text-[11.5px]">{item.cantidad}</span>
                           ) : (
@@ -1543,7 +1627,7 @@ export default function App() {
                         </td>
  
                         {/* Unit */}
-                        <td className="p-3">
+                        <td className="p-3 print:p-1.5">
                           {item.confirmed || previewMode ? (
                             <span className="font-semibold text-slate-500 text-[11px]">{item.unidad}</span>
                           ) : (
@@ -1562,7 +1646,7 @@ export default function App() {
                         </td>
  
                         {/* Unit Price */}
-                        <td className="p-3 text-right">
+                        <td className="p-3 print:p-1.5 text-right">
                           {item.confirmed || previewMode ? (
                             <span className="font-semibold font-mono text-[11.5px]">{moneda} {(item.valorUnitario || 0).toFixed(2)}</span>
                           ) : (
@@ -1581,7 +1665,7 @@ export default function App() {
                         </td>
  
                         {/* Subtotal */}
-                        <td className="p-3 text-right font-mono font-bold text-slate-850 text-[11.5px]">
+                        <td className="p-3 print:p-1.5 text-right font-mono font-bold text-slate-850 text-[11.5px]">
                           {moneda} {((item.cantidad || 0) * (item.valorUnitario || 0)).toFixed(2)}
                         </td>
  
@@ -1669,7 +1753,7 @@ export default function App() {
           </div>
 
           {/* CONDITIONS AND TOTALS SPLIT BLOCK */}
-          <div className="grid grid-cols-1 md:grid-cols-10 gap-6 pt-4 border-t border-slate-100">
+          <div className="grid grid-cols-1 md:grid-cols-10 gap-6 print:gap-4 pt-4 border-t border-slate-100">
             
             {/* Direct observations conditions text zone */}
             <div className="md:col-span-6 space-y-2">
@@ -1677,7 +1761,7 @@ export default function App() {
                 CONDICIONES
               </h2>
               {previewMode ? (
-                <div className="text-[10px] text-slate-500 font-medium leading-relaxed bg-slate-50 p-3.5 rounded border border-slate-200/50 whitespace-pre-line select-text">
+                <div className="text-[10px] text-slate-500 font-medium leading-relaxed bg-slate-50 p-3.5 print:p-2 rounded border border-slate-200/50 whitespace-pre-line select-text">
                   {observaciones || "-(Ninguna condición especificada)-"}
                 </div>
               ) : (
@@ -1722,14 +1806,14 @@ export default function App() {
               <div className="border border-slate-200 rounded overflow-hidden select-none">
                 
                 {/* Subtotal */}
-                <div className="flex items-center justify-between p-2.5 bg-slate-50/50 border-b border-slate-200">
+                <div className="flex items-center justify-between p-2.5 print:p-1.5 bg-slate-50/50 border-b border-slate-200">
                   <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Subtotal</span>
                   <span className="text-xs font-bold text-slate-700 font-mono">{moneda} {subtotal.toFixed(2)}</span>
                 </div>
 
                 {/* Promotional Discount line */}
                 {discountPercentage > 0 && (
-                  <div className="flex items-center justify-between p-2.5 bg-rose-50/40 border-b border-rose-100 text-rose-700 font-medium transition-all duration-300 animate-fade-in">
+                  <div className="flex items-center justify-between p-2.5 print:p-1.5 bg-rose-50/40 border-b border-rose-100 text-rose-700 font-medium transition-all duration-300 animate-fade-in">
                     <span className="text-[10px] uppercase font-bold tracking-wider">Descuento ({discountPercentage}%)</span>
                     <span className="text-xs font-bold font-mono">-{moneda} {discountAmount.toFixed(2)}</span>
                   </div>
@@ -1773,7 +1857,7 @@ export default function App() {
                 </div>
 
                 {/* Big summary line total */}
-                <div className="flex items-center justify-between p-3.5 bg-slate-50 border-t-[3px] border-solid theme-border text-[#040D16]">
+                <div className="flex items-center justify-between p-3.5 print:p-2 bg-slate-50 border-t-[3px] border-solid theme-border text-[#040D16]">
                   <span className="text-xs font-extrabold uppercase tracking-widest text-[#040D16] font-sans">Total Final</span>
                   <span className="text-sm font-black font-mono theme-text">{moneda} {total.toFixed(2)}</span>
                 </div>
@@ -1782,11 +1866,11 @@ export default function App() {
             </div>
 
           </div>
-
+        </div>
         </div>
 
         {/* PIE DE PÁGINA (RESTABLECIDO) - Dark footer with corporate accounts and handles */}
-        <div className="bg-[#040D16] text-white p-6 sm:px-8 sm:py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between border-t-[3px] border-solid theme-border gap-4 select-none">
+        <div className="print-fixed-footer bg-[#040D16] text-white p-6 sm:px-8 sm:py-5 print:py-2 print:px-4 flex flex-col sm:flex-row items-start sm:items-center justify-between border-t-[3px] border-solid theme-border gap-4 select-none">
           <div className="text-[10px] space-y-1 text-slate-300">
             {bancoSoles && <p><strong>BCP Soles:</strong> {bancoSoles} {cciSoles && <>| <strong>CCI:</strong> {cciSoles}</>}</p>}
             {bancoDolares && <p><strong>ScotiaBank Dólares:</strong> {bancoDolares} {cciDolares && <>| <strong>CCI:</strong> {cciDolares}</>}</p>}

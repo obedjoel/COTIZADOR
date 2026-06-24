@@ -25,13 +25,26 @@
       margin: 0;
       padding: 0;
       box-shadow: none;
+      border: none;
+      display: table !important;
+    }
+    .print-fixed-header {
+      display: table-header-group !important;
+      position: static !important;
+    }
+    .print-body-content {
+      display: table-row-group !important;
+    }
+    .print-fixed-footer {
+      display: table-footer-group !important;
+      position: static !important;
     }
     .no-print {
       display: none !important;
     }
     @page { 
-      size: auto;   
-      margin: 0mm; 
+      size: A4;   
+      margin: 5mm; 
     }
   }
 }
