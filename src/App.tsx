@@ -1330,24 +1330,25 @@ export default function App() {
       >
         
         {/* ENCABEZADO CON LOGO */}
-        <div className="print-fixed-header bg-[#040D16] text-white p-6 sm:p-5 print:p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between border-b-[4px] border-solid theme-border-b">
-          <div className="flex flex-col mb-4 sm:mb-0">
-            {/* The white filter or drop-shadow can be added if needed, but since it's transparent we'll just constrain its height */}
-            <img src={logoOne} alt="ONE Espacio Creativo Logo" className="h-16 print:h-12 w-auto object-contain" />
-          </div>
+        <div className="print-fixed-header w-full">
+          <div className="bg-[#040D16] text-white p-6 sm:px-8 sm:py-5 print:px-8 print:py-4 flex flex-col sm:flex-row print:flex-row items-start sm:items-center print:items-center justify-between border-b-[4px] border-solid theme-border-b">
+            <div className="flex flex-col mb-4 sm:mb-0 print:mb-0">
+              <img src={logoOne} alt="ONE Espacio Creativo Logo" className="h-16 print:h-12 w-auto max-w-[250px] object-contain" />
+            </div>
 
-          <div className="text-left sm:text-right text-xs space-y-0.5 text-slate-300">
-            <h2 className="text-sm font-bold theme-text tracking-wider uppercase mb-1">OBED GUEVARA</h2>
-            <p className="font-medium">RUC: 10417585350</p>
-            <p className="flex items-center sm:justify-end gap-1.5"><i className='bx bxl-whatsapp text-sm theme-text' /> +51 991 820 589</p>
-            <p className="flex items-center sm:justify-end gap-1.5"><i className='bx bx-envelope text-sm theme-text' /> obedjoel@gmail.com</p>
-            <p className="flex items-center sm:justify-end gap-1.5"><i className='bx bx-map text-sm theme-text' /> Leoncio Prado V7, Paucarpata</p>
+            <div className="text-left sm:text-right print:text-right text-xs space-y-0.5 text-slate-300">
+              <h2 className="text-sm font-bold theme-text tracking-wider uppercase mb-1">OBED GUEVARA</h2>
+              <p className="font-medium">RUC: 10417585350</p>
+              <p className="flex items-center sm:justify-end gap-1.5"><i className='bx bxl-whatsapp text-sm theme-text' /> +51 991 820 589</p>
+              <p className="flex items-center sm:justify-end gap-1.5"><i className='bx bx-envelope text-sm theme-text' /> obedjoel@gmail.com</p>
+              <p className="flex items-center sm:justify-end gap-1.5"><i className='bx bx-map text-sm theme-text' /> Leoncio Prado V7, Paucarpata</p>
+            </div>
           </div>
         </div>
 
         <div className="print-body-content flex-1 max-w-[900px] w-full mx-auto">
           {/* SECCIÓN FECHA Y NÚMERO */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-6 py-3.5 print:py-1 bg-slate-100 border-b border-slate-200 gap-2">
+          <div className="flex flex-col sm:flex-row print:flex-row items-start sm:items-center print:items-center justify-between px-6 sm:px-8 print:px-8 py-3.5 print:py-2 bg-slate-100 border-b border-slate-200 gap-2">
             <div>
               <p className="text-xs text-slate-600 font-medium select-none">
                 <strong className="text-slate-800">Fecha de Emisión:</strong> {fechaActual || "Cargando..."}
@@ -1357,7 +1358,7 @@ export default function App() {
               <span>N° COTIZACIÓN:</span>
               <span className="font-extrabold select-none">{cotizacionPrefix}</span>
               {previewMode ? (
-                <span className="font-extrabold font-mono">{cotizacionNumero}</span>
+                <span className="font-extrabold font-sans">{cotizacionNumero}</span>
               ) : (
                 <input 
                   type="text" 
@@ -1365,14 +1366,14 @@ export default function App() {
                   onChange={(e) => {
                     setCotizacionNumero(e.target.value);
                   }}
-                  className="w-16 text-xs theme-text font-bold font-mono placeholder-slate-400 border-b border-dashed theme-border focus:outline-none focus:border-solid bg-transparent px-1 py-0 text-center"
+                  className="w-16 text-xs theme-text font-bold font-sans placeholder-slate-400 border-b border-dashed theme-border focus:outline-none focus:border-solid bg-transparent px-1 py-0 text-center"
                 />
               )}
             </div>
           </div>
 
           {/* MAIN BODY OF THE DOCUMENT */}
-          <div className="p-6 sm:p-8 print:p-3 space-y-6 print:space-y-2">
+          <div className="p-6 sm:p-8 print:px-8 print:py-5 space-y-6 print:space-y-4">
 
           {/* DATOS CLIENTE */}
           <div className="space-y-3">
@@ -1420,7 +1421,7 @@ export default function App() {
               </div>
             )}
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-4 print:gap-6">
               
               {/* Column 1 info inputs */}
               <div className="space-y-3 text-xs">
@@ -1614,14 +1615,14 @@ export default function App() {
                         {/* Quantity */}
                         <td className="p-3 print:p-1.5 text-center">
                           {item.confirmed || previewMode ? (
-                            <span className="font-semibold font-mono text-[11.5px]">{item.cantidad}</span>
+                            <span className="font-semibold font-sans text-[11.5px]">{item.cantidad}</span>
                           ) : (
                             <input 
                               type="number" 
                               min="1"
                               value={item.cantidad}
                               onChange={(e) => handleItemPropertyChange(item.id, "cantidad", Number(e.target.value))}
-                              className="w-14 p-1.5 text-center bg-white border border-slate-300 rounded font-bold font-mono text-xs focus:ring-1 focus:ring-[#2CB1C9]"
+                              className="w-14 p-1.5 text-center bg-white border border-slate-300 rounded font-bold font-sans text-xs focus:ring-1 focus:ring-[#2CB1C9]"
                             />
                           )}
                         </td>
@@ -1648,9 +1649,9 @@ export default function App() {
                         {/* Unit Price */}
                         <td className="p-3 print:p-1.5 text-right">
                           {item.confirmed || previewMode ? (
-                            <span className="font-semibold font-mono text-[11.5px]">{moneda} {(item.valorUnitario || 0).toFixed(2)}</span>
+                            <span className="font-semibold font-sans text-[11.5px]">{moneda} {(item.valorUnitario || 0).toFixed(2)}</span>
                           ) : (
-                            <div className="flex items-center justify-end gap-1 font-mono text-slate-500">
+                            <div className="flex items-center justify-end gap-1 font-sans text-slate-500">
                               <span className="select-none text-[10px] font-bold">{moneda}</span>
                               <input 
                                 type="number" 
@@ -1658,14 +1659,14 @@ export default function App() {
                                 min="0"
                                 value={item.valorUnitario}
                                 onChange={(e) => handleItemPropertyChange(item.id, "valorUnitario", Number(e.target.value))}
-                                className="w-16 p-1.5 text-right bg-white border border-slate-300 rounded font-bold font-mono text-xs focus:ring-1 theme-ring"
+                                className="w-16 p-1.5 text-right bg-white border border-slate-300 rounded font-bold font-sans text-xs focus:ring-1 theme-ring"
                               />
                             </div>
                           )}
                         </td>
  
                         {/* Subtotal */}
-                        <td className="p-3 print:p-1.5 text-right font-mono font-bold text-slate-850 text-[11.5px]">
+                        <td className="p-3 print:p-1.5 text-right font-sans font-bold text-slate-850 text-[11.5px]">
                           {moneda} {((item.cantidad || 0) * (item.valorUnitario || 0)).toFixed(2)}
                         </td>
  
@@ -1753,10 +1754,10 @@ export default function App() {
           </div>
 
           {/* CONDITIONS AND TOTALS SPLIT BLOCK */}
-          <div className="grid grid-cols-1 md:grid-cols-10 gap-6 print:gap-4 pt-4 border-t border-slate-100">
+          <div className="grid grid-cols-1 md:grid-cols-10 print:grid-cols-10 gap-6 print:gap-8 pt-4 border-t border-slate-100">
             
             {/* Direct observations conditions text zone */}
-            <div className="md:col-span-6 space-y-2">
+            <div className="md:col-span-6 print:col-span-6 space-y-2">
               <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-l-4 theme-border-l pl-3.5 select-none">
                 CONDICIONES
               </h2>
@@ -1802,20 +1803,20 @@ export default function App() {
             </div>
 
             {/* Totals table calculations */}
-            <div className="md:col-span-4 flex flex-col justify-start">
+            <div className="md:col-span-4 print:col-span-4 flex flex-col justify-start">
               <div className="border border-slate-200 rounded overflow-hidden select-none">
                 
                 {/* Subtotal */}
                 <div className="flex items-center justify-between p-2.5 print:p-1.5 bg-slate-50/50 border-b border-slate-200">
                   <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Subtotal</span>
-                  <span className="text-xs font-bold text-slate-700 font-mono">{moneda} {subtotal.toFixed(2)}</span>
+                  <span className="text-xs font-bold text-slate-700 font-sans">{moneda} {subtotal.toFixed(2)}</span>
                 </div>
 
                 {/* Promotional Discount line */}
                 {discountPercentage > 0 && (
                   <div className="flex items-center justify-between p-2.5 print:p-1.5 bg-rose-50/40 border-b border-rose-100 text-rose-700 font-medium transition-all duration-300 animate-fade-in">
                     <span className="text-[10px] uppercase font-bold tracking-wider">Descuento ({discountPercentage}%)</span>
-                    <span className="text-xs font-bold font-mono">-{moneda} {discountAmount.toFixed(2)}</span>
+                    <span className="text-xs font-bold font-sans">-{moneda} {discountAmount.toFixed(2)}</span>
                   </div>
                 )}
 
@@ -1844,14 +1845,14 @@ export default function App() {
                           max="100"
                           value={taxRate}
                           onChange={(e) => setTaxRate(Number(e.target.value))}
-                          className="w-10 bg-transparent border-b border-dashed border-slate-300 text-center focus:outline-none focus:border-[#2CB1C9] font-mono text-[10px] p-0 font-bold"
+                          className="w-10 bg-transparent border-b border-dashed border-slate-300 text-center focus:outline-none focus:border-[#2CB1C9] font-sans text-[10px] p-0 font-bold"
                           title="Editar tasa impositiva (%)"
                         />
                         <span>%</span>
                       </div>
                     )}
                   </div>
-                  <span className="text-xs font-bold text-slate-700 font-mono">
+                  <span className="text-xs font-bold text-slate-700 font-sans">
                     {igvActivo ? `${moneda} ${igv.toFixed(2)}` : `${moneda} 0.00`}
                   </span>
                 </div>
@@ -1859,7 +1860,7 @@ export default function App() {
                 {/* Big summary line total */}
                 <div className="flex items-center justify-between p-3.5 print:p-2 bg-slate-50 border-t-[3px] border-solid theme-border text-[#040D16]">
                   <span className="text-xs font-extrabold uppercase tracking-widest text-[#040D16] font-sans">Total Final</span>
-                  <span className="text-sm font-black font-mono theme-text">{moneda} {total.toFixed(2)}</span>
+                  <span className="text-sm font-black font-sans theme-text">{moneda} {total.toFixed(2)}</span>
                 </div>
 
               </div>
@@ -1870,16 +1871,18 @@ export default function App() {
         </div>
 
         {/* PIE DE PÁGINA (RESTABLECIDO) - Dark footer with corporate accounts and handles */}
-        <div className="print-fixed-footer bg-[#040D16] text-white p-6 sm:px-8 sm:py-5 print:py-2 print:px-4 flex flex-col sm:flex-row items-start sm:items-center justify-between border-t-[3px] border-solid theme-border gap-4 select-none">
-          <div className="text-[10px] space-y-1 text-slate-300">
-            {bancoSoles && <p><strong>BCP Soles:</strong> {bancoSoles} {cciSoles && <>| <strong>CCI:</strong> {cciSoles}</>}</p>}
-            {bancoDolares && <p><strong>ScotiaBank Dólares:</strong> {bancoDolares} {cciDolares && <>| <strong>CCI:</strong> {cciDolares}</>}</p>}
-            {detracciones && <p><strong>Detracciones BN:</strong> {detracciones}</p>}
-          </div>
-          <div className="text-left sm:text-right text-[10px] leading-tight text-slate-300 shrink-0">
-            <p className="font-extrabold text-white uppercase text-xs leading-none mb-1">OBED GUEVARA</p>
-            <p className="flex items-center sm:justify-end gap-1 theme-text font-bold"><i className='bx bxl-instagram text-xs' /> @one.estudiografico</p>
-            <p className="flex items-center sm:justify-end gap-1 text-slate-300 mt-0.5"><i className='bx bxl-whatsapp text-xs text-emerald-400' /> +51 991 820 589</p>
+        <div className="print-fixed-footer w-full">
+          <div className="bg-[#040D16] text-white p-6 sm:px-8 sm:py-5 print:px-8 print:py-4 flex flex-col sm:flex-row print:flex-row items-start sm:items-center print:items-center justify-between border-t-[3px] border-solid theme-border gap-4 select-none">
+            <div className="text-left sm:text-left print:text-left text-[10px] space-y-1 text-slate-300">
+              {bancoSoles && <p><strong>BCP Soles:</strong> {bancoSoles} {cciSoles && <>| <strong>CCI:</strong> {cciSoles}</>}</p>}
+              {bancoDolares && <p><strong>ScotiaBank Dólares:</strong> {bancoDolares} {cciDolares && <>| <strong>CCI:</strong> {cciDolares}</>}</p>}
+              {detracciones && <p><strong>Detracciones BN:</strong> {detracciones}</p>}
+            </div>
+            <div className="text-left sm:text-right print:text-right text-[10px] leading-tight text-slate-300 shrink-0">
+              <p className="font-extrabold text-white uppercase text-xs leading-none mb-1">OBED GUEVARA</p>
+              <p className="flex items-center sm:justify-end gap-1 theme-text font-bold"><i className='bx bxl-instagram text-xs' /> @one.estudiografico</p>
+              <p className="flex items-center sm:justify-end gap-1 text-slate-300 mt-0.5"><i className='bx bxl-whatsapp text-xs text-emerald-400' /> +51 991 820 589</p>
+            </div>
           </div>
         </div>
 
@@ -1989,7 +1992,7 @@ export default function App() {
                       {q.proyecto && (
                         <p className="text-[10px] text-slate-400 font-medium">Proyecto: {q.proyecto}</p>
                       )}
-                      <p className="text-[10px] text-[#2CB1C9]/90 font-mono font-bold pt-0.5">
+                      <p className="text-[10px] text-[#2CB1C9]/90 font-sans font-bold pt-0.5">
                         {q.items?.filter(i => i.producto.trim())?.length || 0} ítems • Total S/ {(q.total || 0).toFixed(2)}
                       </p>
                     </div>
@@ -1997,7 +2000,7 @@ export default function App() {
                     <div className="flex items-center gap-3 w-full sm:w-auto self-stretch sm:self-center justify-end">
                       <div className="text-right shrink-0">
                         <span className="text-[8px] uppercase font-bold text-slate-400 block tracking-tight select-none">Total</span>
-                        <span className="text-xs font-extrabold text-slate-850 font-mono">S/ {(q.total || 0).toFixed(2)}</span>
+                        <span className="text-xs font-extrabold text-slate-850 font-sans">S/ {(q.total || 0).toFixed(2)}</span>
                       </div>
                       <button
                         onClick={(e) => handleDeleteQuote(q.id, e)}
