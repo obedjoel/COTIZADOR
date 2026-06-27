@@ -51,7 +51,7 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
   }
 };
 
-export const getAccessToken = async (): Promise<string | null> => {
+export const getAccessToken = (): string | null => {
   return cachedAccessToken;
 };
 

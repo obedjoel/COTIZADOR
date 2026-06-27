@@ -8,6 +8,8 @@ import {
 import html2canvas from "html2canvas";
 import { Cotizacion, CotizacionItem, ClientData } from "./types";
 import logoOne from "./logoONEtransparente.png";
+import { initAuth, googleSignIn, getAccessToken } from "./googleAuth";
+import { createSpreadsheet, appendRow, getSpreadsheetData } from "./googleSheetsService";
 
 // Dynamic Client-side Firebase Firestore initialization helper
 import { initializeApp, getApps, getApp } from "firebase/app";
@@ -476,15 +478,13 @@ export default function App() {
         showNotification(`Cotización ${quoteId} guardada. El número de cotización cambió aleatoriamente a la N° ${nextNum}.`, "success");
       } else if (dbSource === "gsheets") {
         // Authenticate with Google
-        const { getAccessToken, googleSignIn } = await import("./googleAuth");
-        const { createSpreadsheet, appendRow } = await import("./googleSheetsService");
-        
-        let token = await getAccessToken();
+        let token = getAccessToken();
         if (!token) {
           try {
             const authRes = await googleSignIn();
             if (authRes) token = authRes.accessToken;
           } catch (e) {
+            console.error(e);
             showNotification("Requiere iniciar sesión en Google para guardar en Sheets.", "error");
             setLoading(false);
             return;
@@ -1220,13 +1220,13 @@ export default function App() {
                       showNotification("Servicio de Google Sheets seleccionado.", "info");
                       
                       // Auto-trigger sign-in if not signed in
-                      const { initAuth, googleSignIn, getAccessToken } = await import("./googleAuth");
-                      const token = await getAccessToken();
+                      const token = getAccessToken();
                       if (!token) {
                         try {
                           await googleSignIn();
                           showNotification("Autenticación con Google exitosa.", "success");
-                        } catch (err) {
+                        } catch (err: any) {
+                           console.error(err);
                            showNotification("Error de autenticación con Google.", "error");
                         }
                       }
