@@ -32,7 +32,7 @@ export const initAuth = (
   });
 };
 
-export const googleSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
+export const googleSignIn = async (): Promise<{ user: User; accessToken: string; idToken: string } | null> => {
   try {
     isSigningIn = true;
     const result = await signInWithPopup(auth, provider);
@@ -42,7 +42,8 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
     }
 
     cachedAccessToken = credential.accessToken;
-    return { user: result.user, accessToken: cachedAccessToken };
+    const idToken = await result.user.getIdToken();
+    return { user: result.user, accessToken: cachedAccessToken, idToken };
   } catch (error: any) {
     console.error('Sign in error:', error);
     throw error;
@@ -53,6 +54,13 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string 
 
 export const getAccessToken = (): string | null => {
   return cachedAccessToken;
+};
+
+export const getIdToken = async (): Promise<string | null> => {
+  if (auth.currentUser) {
+    return await auth.currentUser.getIdToken();
+  }
+  return null;
 };
 
 export const logout = async () => {

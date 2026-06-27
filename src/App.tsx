@@ -393,7 +393,12 @@ export default function App() {
         showNotification(`Cargadas ${offlineHist.length} cotizaciones locales (Dispositivo).`, "success");
       } else {
         // Standard REST endpoint fallback
-        const res = await fetch("/api/cotizaciones");
+        const { getIdToken } = await import("./googleAuth");
+        const token = await getIdToken();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        
+        const res = await fetch("/api/cotizaciones", { headers });
         if (res.ok) {
           const data = await res.json();
           setHistoryList(data);
@@ -538,9 +543,14 @@ export default function App() {
         showNotification(`Cotización ${quoteId} guardada localmente. Nueva correlativa: N° ${nextNum}.`, "success");
       } else {
         // Standard REST endpoint
+        const { getIdToken } = await import("./googleAuth");
+        const token = await getIdToken();
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+
         const response = await fetch("/api/cotizaciones", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(payload)
         });
 
@@ -629,8 +639,14 @@ export default function App() {
             localStorage.setItem("one_hist_checkpoint1", JSON.stringify(offlineHist));
             showNotification(`Cotización ${id} eliminada del almacenamiento local.`, "info");
           } else {
+            const { getIdToken } = await import("./googleAuth");
+            const token = await getIdToken();
+            const headers: Record<string, string> = {};
+            if (token) headers["Authorization"] = `Bearer ${token}`;
+
             const res = await fetch(`/api/cotizaciones/${id}`, {
-              method: "DELETE"
+              method: "DELETE",
+              headers
             });
             if (res.ok) {
               showNotification(`Cotización ${id} eliminada de la base de datos.`, "info");
@@ -1175,10 +1191,23 @@ export default function App() {
                   </button>
 
                   <button
-                    onClick={() => {
+                    onClick={async () => {
+                      const { getAccessToken, googleSignIn } = await import("./googleAuth");
+                      let token = getAccessToken();
+                      if (!token) {
+                        try {
+                          await googleSignIn();
+                          showNotification("Autenticación con Google exitosa para Servidor API.", "success");
+                        } catch (err) {
+                           console.error(err);
+                           showNotification("Error de autenticación.", "error");
+                           return;
+                        }
+                      }
                       setDbSource("server");
                       localStorage.setItem("one_db_source", "server");
-                      showNotification("Conectado con el servidor Express local.", "info");
+                      showNotification("Conectado con el servidor Cloud SQL.", "success");
+                      fetchHistory();
                     }}
                     className={`px-3 py-1.5 rounded font-bold transition-all cursor-pointer flex items-center gap-1.5 text-[11px] ${
                       dbSource === "server"
@@ -1187,7 +1216,7 @@ export default function App() {
                     }`}
                   >
                     <Server className="w-3.5 h-3.5" />
-                    <span>Servidor API</span>
+                    <span>Servidor API (PostgreSQL)</span>
                   </button>
 
                   <button
