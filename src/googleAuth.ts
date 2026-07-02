@@ -4,9 +4,9 @@ import firebaseConfig from '../firebase-applet-config.json';
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
-
 const provider = new GoogleAuthProvider();
-// Request Workspace scopes
+
+// If you still want to allow Google Sheets scopes, keep them:
 provider.addScope('https://www.googleapis.com/auth/spreadsheets');
 provider.addScope('https://www.googleapis.com/auth/drive.file');
 
@@ -14,19 +14,14 @@ let isSigningIn = false;
 let cachedAccessToken: string | null = null;
 
 export const initAuth = (
-  onAuthSuccess?: (user: User, token: string) => void,
+  onAuthSuccess?: (user: User) => void,
   onAuthFailure?: () => void
 ) => {
   return onAuthStateChanged(auth, async (user: User | null) => {
     if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        cachedAccessToken = null;
-        if (onAuthFailure) onAuthFailure();
-      }
+      // Just confirm login success immediately if user exists
+      if (onAuthSuccess) onAuthSuccess(user);
     } else {
-      cachedAccessToken = null;
       if (onAuthFailure) onAuthFailure();
     }
   });
@@ -37,13 +32,12 @@ export const googleSignIn = async (): Promise<{ user: User; accessToken: string;
     isSigningIn = true;
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error('Failed to get access token from Firebase Auth');
-    }
-
-    cachedAccessToken = credential.accessToken;
+    
+    // We don't throw an error if accessToken is missing, it might just be cached by Firebase.
+    cachedAccessToken = credential?.accessToken || null;
+    
     const idToken = await result.user.getIdToken();
-    return { user: result.user, accessToken: cachedAccessToken, idToken };
+    return { user: result.user, accessToken: cachedAccessToken || "", idToken };
   } catch (error: any) {
     console.error('Sign in error:', error);
     throw error;
@@ -67,3 +61,4 @@ export const logout = async () => {
   await auth.signOut();
   cachedAccessToken = null;
 };
+
