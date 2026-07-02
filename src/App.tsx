@@ -88,10 +88,6 @@ const getNextSuggestedInvoiceNumber = (prefix: string, list: Cotizacion[]) => {
 };
 
 export default function App() {
-  const [authStatus, setAuthStatus] = useState<"loading" | "authenticated" | "unauthorized" | "logged_out">("loading");
-  const [authUser, setAuthUser] = useState<any>(null);
-  const ALLOWED_EMAIL = "obedjoel@gmail.com";
-
   const [loading, setLoading] = useState<boolean>(false);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
   const [historyList, setHistoryList] = useState<Cotizacion[]>([]);
@@ -298,22 +294,9 @@ export default function App() {
       setFirebaseConfigStr(savedKeys);
     }
 
-    import("./googleAuth").then(({ initAuth, logout }) => {
-      initAuth((user) => {
-        if (user.email === ALLOWED_EMAIL) {
-          setAuthUser(user);
-          setAuthStatus("authenticated");
-        } else {
-          logout();
-          setAuthStatus("unauthorized");
-        }
-      }, () => {
-        setAuthStatus("logged_out");
-      });
-    }).catch(e => {
-      console.error("Could not init google auth", e);
-      setAuthStatus("logged_out");
-    });
+    import("./googleAuth").then(({ initAuth }) => {
+      initAuth();
+    }).catch(e => console.error("Could not init google auth", e));
 
     setIsLoaded(true);
   }, []);
@@ -1086,59 +1069,6 @@ export default function App() {
     !previewMode || item.producto.trim() !== ""
   );
 
-  if (authStatus === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100">
-        <Loader2 className="w-8 h-8 text-[#2CB1C9] animate-spin" />
-      </div>
-    );
-  }
-
-  if (authStatus !== "authenticated") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-[#2CB1C9]/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-8 h-8 text-[#2CB1C9]" />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-2">Acceso Restringido</h2>
-          <p className="text-slate-600 mb-8 text-sm">
-            Esta aplicación es privada. Inicie sesión con su cuenta autorizada para continuar.
-          </p>
-          
-          {authStatus === "unauthorized" && (
-            <div className="bg-rose-50 text-rose-600 p-3 rounded-lg text-sm mb-6 flex items-start gap-2 text-left">
-              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-              <p>La cuenta seleccionada no tiene permisos de acceso. Por favor, utilice la cuenta autorizada.</p>
-            </div>
-          )}
-
-          <button
-            onClick={async () => {
-              const { googleSignIn } = await import("./googleAuth");
-              try {
-                const res = await googleSignIn();
-                if (res?.user.email === ALLOWED_EMAIL) {
-                  setAuthUser(res.user);
-                  setAuthStatus("authenticated");
-                } else {
-                  const { logout } = await import("./googleAuth");
-                  await logout();
-                  setAuthStatus("unauthorized");
-                }
-              } catch (e) {
-                console.error(e);
-              }
-            }}
-            className="w-full bg-[#2CB1C9] hover:bg-[#2CB1C9]/90 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md shadow-cyan-600/20"
-          >
-            Iniciar sesión con Google
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen font-['Poppins'] flex flex-col bg-slate-100 text-[#0F1829] p-2 sm:p-5">
       
@@ -1222,34 +1152,21 @@ export default function App() {
                   Base de Datos & Sincronización
                 </span>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1 bg-slate-950/80 px-2.5 py-1 rounded-full border border-slate-800 text-[10px] font-mono">
-                  <span className="text-slate-400">Canal:</span>
-                  {dbSource === "firebase" ? (
-                    <span className="text-cyan-400 flex items-center gap-1 font-bold">
-                      <Cloud className="w-3 h-3 animate-ping" /> Nube Firestore
-                    </span>
-                  ) : dbSource === "server" ? (
-                    <span className="text-emerald-400 flex items-center gap-1 font-bold">
-                      <Server className="w-3 h-3" /> API Servidor
-                    </span>
-                  ) : (
-                    <span className="text-yellow-450 flex items-center gap-1 font-bold">
-                      <WifiOff className="w-3 h-3" /> Dispositivo (Local)
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={async () => {
-                    const { logout } = await import("./googleAuth");
-                    await logout();
-                    setAuthStatus("logged_out");
-                    setAuthUser(null);
-                  }}
-                  className="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1 rounded-full text-[10px] font-bold transition-colors border border-slate-700"
-                >
-                  Cerrar sesión
-                </button>
+              <div className="flex items-center gap-1 bg-slate-950/80 px-2.5 py-1 rounded-full border border-slate-800 text-[10px] font-mono">
+                <span className="text-slate-400">Canal:</span>
+                {dbSource === "firebase" ? (
+                  <span className="text-cyan-400 flex items-center gap-1 font-bold">
+                    <Cloud className="w-3 h-3 animate-ping" /> Nube Firestore
+                  </span>
+                ) : dbSource === "server" ? (
+                  <span className="text-emerald-400 flex items-center gap-1 font-bold">
+                    <Server className="w-3 h-3" /> API Servidor
+                  </span>
+                ) : (
+                  <span className="text-yellow-450 flex items-center gap-1 font-bold">
+                    <WifiOff className="w-3 h-3" /> Dispositivo (Local)
+                  </span>
+                )}
               </div>
             </div>
 
