@@ -3,13 +3,16 @@ import {
   Trash2, Plus, Check, Edit2, History, RotateCcw, 
   Loader2, Download, Eye, AlertCircle, CheckCircle, RefreshCw, X,
   Palette, Sliders, ChevronDown, ChevronUp, Copy, ArrowUp, ArrowDown, Camera,
-  Database, Wifi, WifiOff, Cloud, Server, Globe, Settings
+  Database, Wifi, WifiOff, Cloud, Server, Globe, Settings, Upload, Sparkles, FileText, CheckSquare,
+  MessageCircle, Printer, Send, Mail, ExternalLink, Clock, Rocket, CheckCircle2
 } from "lucide-react";
 import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import { Cotizacion, CotizacionItem, ClientData } from "./types";
 import logoOne from "./logoONEtransparente.png";
 import { initAuth, googleSignIn, getAccessToken } from "./googleAuth";
 import { createSpreadsheet, appendRow, getSpreadsheetData } from "./googleSheetsService";
+import defaultFirebaseConfig from "../firebase-applet-config.json";
 
 // Dynamic Client-side Firebase Firestore initialization helper
 import { initializeApp, getApps, getApp } from "firebase/app";
@@ -21,22 +24,32 @@ let firestoreInstanceDb: any = null;
 function getActiveFirebaseDb() {
   if (firestoreInstanceDb) return firestoreInstanceDb;
   
+  let config: any = defaultFirebaseConfig;
   const storedConfig = localStorage.getItem("one_firebase_config_keys");
-  if (!storedConfig) return null;
+  if (storedConfig) {
+    try {
+      const parsed = JSON.parse(storedConfig);
+      if (parsed && parsed.apiKey) {
+        config = parsed;
+      }
+    } catch (e) {
+      console.warn("Using default Firebase configuration");
+    }
+  }
   
   try {
-    const config = JSON.parse(storedConfig);
-    if (!config || !config.apiKey) return null;
-    
-    if (getApps().length === 0) {
-      firebaseInstanceApp = initializeApp(config);
-    } else {
-      firebaseInstanceApp = getApp();
+    if (config && config.apiKey) {
+      if (getApps().length === 0) {
+        firebaseInstanceApp = initializeApp(config);
+      } else {
+        firebaseInstanceApp = getApp();
+      }
+      firestoreInstanceDb = getFirestore(firebaseInstanceApp);
+      return firestoreInstanceDb;
     }
-    firestoreInstanceDb = getFirestore(firebaseInstanceApp);
-    return firestoreInstanceDb;
+    return null;
   } catch (err) {
-    console.error("Error initializing custom Firebase Firestore db:", err);
+    console.error("Error initializing Firebase Firestore db:", err);
     return null;
   }
 }
@@ -64,11 +77,135 @@ const POPULAR_CHIPS = [
   { label: "+ 🖼️ Banners", desc: "Banner publicitario impreso en lona de 13oz con ollaos esquineros para colgar", price: 0, unit: "Unidad" }
 ];
 
-const CONDICIONES_PRESETS = [
-  { label: "💳 50% Adelanto", text: "Adelanto del 50% para inicio del proyecto, saldo restante de 50% contra entrega de archivos vectorizados y papelería impresa física." },
-  { label: "💰 100% Adelanto", text: "Pago 100% por adelantado para activar el servicio de diseño y maquetación digital de forma inmediata." },
-  { label: "⏳ Entrega 4-6 días", text: "Tiempo de entrega estimado: 4 a 6 días hábiles tras la aprobación final y conformidad del material gráfico por parte del cliente." },
-  { label: "📅 Validez 15 días", text: "La cotización es válida por 15 días calendario. No incluye IGV. Todo trabajo se inicia únicamente previa confirmación de depósito de adelanto del 50%." }
+// PLANTILLAS RÁPIDAS COHERENTES ENTRE SÍ (Packs integrales de 1 clic)
+export const CONDICIONES_PACKS = [
+  {
+    id: "estandar",
+    label: "🌟 Pack Estándar Imprenta",
+    desc: "50% adelanto, 3-5 días entrega, 15 días validez",
+    text: "• Forma de pago: 50% de adelanto para inicio y 50% contra entrega conforme.\n• Tiempo de entrega: 3 a 5 días hábiles tras aprobación del arte final.\n• Validez de la cotización: 15 días calendario.\n• Todo trabajo inicia tras visto bueno digital del diseño."
+  },
+  {
+    id: "express",
+    label: "⚡ Pack Express (Urgente)",
+    desc: "100% adelanto, entrega rápida 24-48 hrs",
+    text: "• Forma de pago: 100% al contado por adelantado para activación inmediata.\n• Tiempo de entrega: 24 a 48 horas hábiles tras aprobación del diseño.\n• Validez de la cotización: 5 días calendario.\n• Trabajo sujeto a confirmación inmediata del archivo digital listo para impresión."
+  },
+  {
+    id: "diseno",
+    label: "🎨 Pack Diseño Gráfico",
+    desc: "Propuestas, 2 rondas de ajustes, entregables vectoriales",
+    text: "• Forma de pago: 50% de adelanto para desarrollo de propuestas y 50% contra entrega de archivos finales.\n• Tiempo de entrega: 3 a 4 días hábiles para presentación de primera ronda de propuestas.\n• Incluye hasta 2 rondas de correcciones o ajustes sobre la propuesta seleccionada.\n• Entrega de archivos vectoriales editables (AI, PDF) y exportaciones para redes (PNG, JPG)."
+  },
+  {
+    id: "credito",
+    label: "🏢 Pack Corporativo (Crédito)",
+    desc: "Crédito 15 días con O/C, entrega 5-7 días",
+    text: "• Forma de pago: Crédito comercial a 15 días calendario previa orden de compra aprobada.\n• Tiempo de entrega: 5 a 7 días hábiles según volumen de producción.\n• Validez de la cotización: 30 días calendario.\n• Precios válidos para emisión de factura electrónica oficial."
+  }
+];
+
+// CLÁUSULAS POR CATEGORÍA CON LÓGICA DE REEMPLAZO INTELIGENTE (Sin contradicciones internas)
+export const CONDICIONES_CLAUSULAS = [
+  // FORMA DE PAGO (Mutuamente excluyentes)
+  {
+    categoria: "pago",
+    catLabel: "Forma de Pago",
+    label: "💳 50% Adelanto",
+    text: "• Forma de pago: 50% de adelanto para inicio y 50% contra entrega conforme."
+  },
+  {
+    categoria: "pago",
+    catLabel: "Forma de Pago",
+    label: "💰 100% Contado",
+    text: "• Forma de pago: 100% al contado por adelantado para activación inmediata."
+  },
+  {
+    categoria: "pago",
+    catLabel: "Forma de Pago",
+    label: "🏢 Crédito 15 Días",
+    text: "• Forma de pago: Crédito comercial a 15 días calendario previa orden de compra."
+  },
+  {
+    categoria: "pago",
+    catLabel: "Forma de Pago",
+    label: "💵 Contra Entrega",
+    text: "• Forma de pago: Cancelación del 100% contra entrega conforme de los productos."
+  },
+
+  // TIEMPO DE ENTREGA (Mutuamente excluyentes)
+  {
+    categoria: "entrega",
+    catLabel: "Tiempo de Entrega",
+    label: "⚡ Express 24-48h",
+    text: "• Tiempo de entrega: 24 a 48 horas hábiles tras aprobación del arte final."
+  },
+  {
+    categoria: "entrega",
+    catLabel: "Tiempo de Entrega",
+    label: "⏳ Estándar 3-5 días",
+    text: "• Tiempo de entrega: 3 a 5 días hábiles tras confirmación de diseño."
+  },
+  {
+    categoria: "entrega",
+    catLabel: "Tiempo de Entrega",
+    label: "📦 Producción 7-10 días",
+    text: "• Tiempo de entrega: 7 a 10 días hábiles según volumen de producción."
+  },
+
+  // VALIDEZ DE LA COTIZACIÓN (Mutuamente excluyentes)
+  {
+    categoria: "validez",
+    catLabel: "Validez",
+    label: "📅 Validez 7 días",
+    text: "• Validez de la cotización: 7 días calendario."
+  },
+  {
+    categoria: "validez",
+    catLabel: "Validez",
+    label: "📅 Validez 15 días",
+    text: "• Validez de la cotización: 15 días calendario."
+  },
+  {
+    categoria: "validez",
+    catLabel: "Validez",
+    label: "📅 Validez 30 días",
+    text: "• Validez de la cotización: 30 días calendario."
+  },
+
+  // APROBACIÓN Y AJUSTES
+  {
+    categoria: "aprobacion",
+    catLabel: "Aprobación",
+    label: "✅ Visto Bueno Digital",
+    text: "• Todo trabajo se inicia únicamente tras la aprobación por escrito del arte final o visto bueno digital."
+  },
+  {
+    categoria: "ajustes",
+    catLabel: "Ajustes",
+    label: "📐 Hasta 2 Revisiones",
+    text: "• Incluye hasta 2 rondas de correcciones o ajustes menores sobre la propuesta elegida."
+  },
+
+  // ENTREGA Y DESPACHO (Mutuamente excluyentes)
+  {
+    categoria: "envio",
+    catLabel: "Envío / Recojo",
+    label: "🛵 Delivery Incluido",
+    text: "• Incluye entrega / delivery sin costo en zona urbana de Arequipa."
+  },
+  {
+    categoria: "envio",
+    catLabel: "Envío / Recojo",
+    label: "🏭 Recojo en Taller",
+    text: "• Entrega para recojo en nuestro taller de diseño y producción."
+  },
+  {
+    categoria: "envio",
+    catLabel: "Envío / Recojo",
+    label: "🚚 Envío a Provincias",
+    text: "• Envío a provincias por agencia de transporte (flete pago en destino por el cliente)."
+  }
 ];
 
 const getNextSuggestedInvoiceNumber = (prefix: string, list: Cotizacion[]) => {
@@ -95,7 +232,7 @@ export default function App() {
 
   // Document states
   const [fechaActual, setFechaActual] = useState<string>("");
-  const [cotizacionPrefix, setCotizacionPrefix] = useState<string>("");
+  const [cotizacionPrefix, setCotizacionPrefix] = useState<string>("2026-10-");
   const [cotizacionNumero, setCotizacionNumero] = useState<string>("00001");
   
   // Client & project state
@@ -112,7 +249,7 @@ export default function App() {
     { id: "1", producto: "", cantidad: 1, unidad: "Millar", valorUnitario: 0, confirmed: false }
   ]);
 
-  const [observaciones, setObservaciones] = useState<string>("Adelanto 50%, tiempo de entrega...");
+  const [observaciones, setObservaciones] = useState<string>("");
   const [igvActivo, setIgvActivo] = useState<boolean>(true);
   const [previewMode, setPreviewMode] = useState<boolean>(false);
 
@@ -143,8 +280,16 @@ export default function App() {
   // Advanced toggles
   const [showBankSettings, setShowBankSettings] = useState<boolean>(false);
 
-  // Database Integration State (Option 3 Implementation)
-  const [dbSource, setDbSource] = useState<"server" | "offline" | "firebase" | "gsheets">("offline");
+  // 1. CIERRE DE VENTAS Y COMUNICACIÓN RÁPIDA (Modal, plantillas y pipeline de ventas)
+  const [salesModalOpen, setSalesModalOpen] = useState<boolean>(false);
+  const [salesTargetQuote, setSalesTargetQuote] = useState<Cotizacion | null>(null);
+  const [salesTemplate, setSalesTemplate] = useState<"formal" | "seguimiento" | "aprobacion" | "vencimiento">("formal");
+  const [salesCustomPhone, setSalesCustomPhone] = useState<string>("");
+  const [salesCustomMessage, setSalesCustomMessage] = useState<string>("");
+  const [currentQuoteStatus, setCurrentQuoteStatus] = useState<"pendiente" | "aprobada" | "rechazada">("pendiente");
+
+  // Database Integration State (Cloud Firestore out-of-the-box + Local offline persistence)
+  const [dbSource, setDbSource] = useState<"server" | "offline" | "firebase" | "gsheets">("firebase");
   const [firebaseConfigStr, setFirebaseConfigStr] = useState<string>("");
   const [showDbSettings, setShowDbSettings] = useState<boolean>(false);
 
@@ -215,7 +360,7 @@ export default function App() {
     const mm = String(today.getMonth() + 1).padStart(2, "0");
     const yyyy = today.getFullYear();
     const activeFecha = `${dd}/${mm}/${yyyy}`;
-    const activePrefix = `${yyyy}-${mm}-`;
+    const activePrefix = "2026-10-";
     
     setFechaActual(activeFecha);
     setCotizacionPrefix(activePrefix);
@@ -236,7 +381,11 @@ export default function App() {
         }
         setCotizacionNumero(startNum);
         
-        if (parsed.observaciones) setObservaciones(parsed.observaciones);
+        if (parsed.observaciones && parsed.observaciones !== "Adelanto 50%, tiempo de entrega...") {
+          setObservaciones(parsed.observaciones);
+        } else {
+          setObservaciones("");
+        }
         if (parsed.igvActivo !== undefined) setIgvActivo(parsed.igvActivo);
         if (parsed.items && parsed.items.length) {
           setItems(parsed.items);
@@ -279,14 +428,14 @@ export default function App() {
       }
     }
 
-    // Load custom database settings and selection (Option 3 Dynamic Configuration support)
+    // Load custom database settings and selection
     const savedDbSource = localStorage.getItem("one_db_source");
     if (savedDbSource === "server" || savedDbSource === "offline" || savedDbSource === "firebase") {
       setDbSource(savedDbSource);
     } else {
-      // Default fallback detector: check if running on a real serving container or localhost
-      const hasBackendServer = window.location.hostname !== ""; 
-      setDbSource(hasBackendServer ? "server" : "offline");
+      // Default to "firebase" Cloud so quotes can sync across devices without manual setup
+      setDbSource("firebase");
+      localStorage.setItem("one_db_source", "firebase");
     }
 
     const savedKeys = localStorage.getItem("one_firebase_config_keys");
@@ -299,6 +448,42 @@ export default function App() {
     }).catch(e => console.error("Could not init google auth", e));
 
     setIsLoaded(true);
+
+    // Initial silent history fetch to pre-populate quotes
+    setTimeout(() => {
+      const activeSource = savedDbSource || "firebase";
+      if (activeSource === "firebase") {
+        const db = getActiveFirebaseDb();
+        if (db) {
+          const colRef = collection(db, "cotizaciones");
+          getDocs(colRef).then(snapshot => {
+            const data = snapshot.docs.map(docVal => docVal.data() as Cotizacion);
+            data.sort((a, b) => {
+              const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+              const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+              return dateB - dateA;
+            });
+            if (data.length) {
+              setHistoryList(data);
+              localStorage.setItem("one_hist_checkpoint1", JSON.stringify(data));
+            } else {
+              const localH = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
+              setHistoryList(localH);
+            }
+          }).catch(e => {
+            console.warn("Background firestore fetch failed, using local history", e);
+            const localH = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
+            setHistoryList(localH);
+          });
+        } else {
+          const localH = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
+          setHistoryList(localH);
+        }
+      } else {
+        const localH = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
+        setHistoryList(localH);
+      }
+    }, 500);
   }, []);
 
   // Universal Autoflow Autosave Effect! Triggered automatically on state transitions
@@ -578,6 +763,207 @@ export default function App() {
     }
   };
 
+  // Cláusulas por categoría con lógica inteligente de no contradicción
+  const handleApplyConditionClause = (categoria: string, clauseText: string) => {
+    setObservaciones(prev => {
+      const lines = prev.split("\n").map(l => l.trim()).filter(Boolean);
+      
+      const categoryKeywords: Record<string, string[]> = {
+        pago: ["forma de pago", "adelanto", "saldo", "al contado", "crédito", "contra entrega", "cancelación"],
+        entrega: ["tiempo de entrega", "días hábiles", "horas hábiles", "plazo de entrega"],
+        validez: ["validez de la cotización", "validez:"],
+        aprobacion: ["aprobación por escrito", "visto bueno", "confirmación escrita"],
+        ajustes: ["rondas de correcciones", "revisiones", "ajustes menores"],
+        envio: ["delivery", "recojo en taller", "envío a provincias", "agencia de transporte"]
+      };
+
+      const keywords = categoryKeywords[categoria] || [];
+      const matchIndex = lines.findIndex(line => {
+        const lower = line.toLowerCase();
+        return keywords.some(kw => lower.includes(kw));
+      });
+
+      if (matchIndex !== -1) {
+        // Si el usuario vuelve a presionar la misma cláusula activa, la desactiva/quita
+        if (lines[matchIndex] === clauseText.trim()) {
+          lines.splice(matchIndex, 1);
+          return lines.join("\n");
+        }
+        // Reemplaza la cláusula incompatible existente en esa categoría
+        lines[matchIndex] = clauseText.trim();
+      } else {
+        lines.push(clauseText.trim());
+      }
+
+      return lines.join("\n");
+    });
+  };
+
+  // Sincronización bidireccional completa entre el Almacenamiento Local y la Nube Firestore
+  const handleSyncCloudAndLocal = async () => {
+    setLoading(true);
+    try {
+      const db = getActiveFirebaseDb();
+      let localHist: Cotizacion[] = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
+
+      if (db) {
+        const colRef = collection(db, "cotizaciones");
+        const snapshot = await getDocs(colRef);
+        const cloudQuotes: Cotizacion[] = snapshot.docs.map(d => d.data() as Cotizacion);
+
+        const cloudMap = new Map(cloudQuotes.map(q => [q.id, q]));
+        const localMap = new Map(localHist.map(q => [q.id, q]));
+
+        let uploaded = 0;
+        // Subir a la nube cualquier cotización guardada localmente que falte en Firestore
+        for (const [id, lq] of localMap.entries()) {
+          if (!cloudMap.has(id)) {
+            await setDoc(doc(db, "cotizaciones", id), lq);
+            cloudMap.set(id, lq);
+            uploaded++;
+          }
+        }
+
+        const merged = Array.from(cloudMap.values());
+        merged.sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateB - dateA;
+        });
+
+        localStorage.setItem("one_hist_checkpoint1", JSON.stringify(merged));
+        setHistoryList(merged);
+        showNotification(`¡Sincronización completada! ${merged.length} cotizaciones consolidadas (${uploaded} respaldadas en la nube).`, "success");
+      } else {
+        // Fallback vía API de servidor
+        const res = await fetch("/api/cotizaciones");
+        if (res.ok) {
+          const serverQuotes: Cotizacion[] = await res.json();
+          const mergedMap = new Map(localHist.map(q => [q.id, q]));
+          serverQuotes.forEach(sq => mergedMap.set(sq.id, sq));
+          const merged = Array.from(mergedMap.values());
+          localStorage.setItem("one_hist_checkpoint1", JSON.stringify(merged));
+          setHistoryList(merged);
+          showNotification(`Sincronizado con el servidor: ${merged.length} cotizaciones.`, "success");
+        }
+      }
+    } catch (err: any) {
+      console.error("Sync error:", err);
+      showNotification(`Error durante la sincronización: ${err.message || "Fallo de conexión"}`, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Exportar respaldo integral en JSON para guardar en Google Drive, USB o enviar
+  const handleExportBackupJson = () => {
+    const localHist = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
+    const storedContactos = JSON.parse(localStorage.getItem("one_estudio_contactos") || "[]");
+    const draft = localStorage.getItem("one_estudio_autosave_checkpoint1");
+
+    const backupData = {
+      version: "2.0",
+      app: "ONE Espacio Creativo - Cotizador",
+      exportDate: new Date().toISOString(),
+      cotizaciones: historyList.length ? historyList : localHist,
+      contactos: storedContactos,
+      draft: draft ? JSON.parse(draft) : null,
+    };
+
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `respaldo_cotizaciones_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showNotification("Respaldo completo exportado en archivo JSON.", "success");
+  };
+
+  // Importar y restaurar respaldo desde archivo JSON en cualquier dispositivo
+  const handleImportBackupJson = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const content = e.target?.result as string;
+        const parsed = JSON.parse(content);
+        const importedQuotes: Cotizacion[] = Array.isArray(parsed) ? parsed : (parsed.cotizaciones || []);
+
+        if (!importedQuotes.length) {
+          showNotification("El archivo JSON no contiene cotizaciones.", "error");
+          return;
+        }
+
+        let currentHist = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
+        const map = new Map(currentHist.map((q: any) => [q.id, q]));
+
+        importedQuotes.forEach(q => {
+          if (q && q.id) map.set(q.id, q);
+        });
+
+        const updatedList = Array.from(map.values()) as Cotizacion[];
+        localStorage.setItem("one_hist_checkpoint1", JSON.stringify(updatedList));
+        setHistoryList(updatedList);
+
+        if (parsed.contactos && Array.isArray(parsed.contactos)) {
+          setContactos(parsed.contactos);
+          localStorage.setItem("one_estudio_contactos", JSON.stringify(parsed.contactos));
+        }
+
+        // Subir también a Firestore Cloud
+        const db = getActiveFirebaseDb();
+        if (db) {
+          for (const q of importedQuotes) {
+            if (q.id) await setDoc(doc(db, "cotizaciones", q.id), q);
+          }
+        }
+
+        showNotification(`¡Restauradas ${importedQuotes.length} cotizaciones y sincronizadas con la nube!`, "success");
+      } catch (err) {
+        console.error(err);
+        showNotification("Error al procesar el archivo JSON de respaldo.", "error");
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = "";
+  };
+
+  // Exportar todas las cotizaciones a formato CSV para Excel
+  const handleExportCsv = () => {
+    const list = historyList.length ? historyList : JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
+    if (!list.length) {
+      showNotification("No hay cotizaciones registradas para exportar a CSV.", "info");
+      return;
+    }
+
+    const headers = ["ID", "NUMERO", "FECHA", "CLIENTE", "RUC", "PROYECTO", "MONEDA", "SUBTOTAL", "IGV", "TOTAL"];
+    const rows = list.map((q: Cotizacion) => [
+      `"${q.id || ''}"`,
+      `"${q.numero || ''}"`,
+      `"${q.fecha || ''}"`,
+      `"${(q.cliente?.nombre || '').replace(/"/g, '""')}"`,
+      `"${q.cliente?.ruc || ''}"`,
+      `"${(q.proyecto || '').replace(/"/g, '""')}"`,
+      `"${q.moneda || 'S/'}"`,
+      (q.subtotal || 0).toFixed(2),
+      (q.igv || 0).toFixed(2),
+      (q.total || 0).toFixed(2)
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `reporte_cotizaciones_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showNotification("Reporte CSV generado exitosamente para Excel.", "success");
+  };
+
   const handleCargarQuote = (selected: Cotizacion) => {
     if (selected.cliente) setCliente(selected.cliente);
     if (selected.proyecto) setProyecto(selected.proyecto);
@@ -678,7 +1064,7 @@ export default function App() {
         const resetProyecto = "";
         const offlineHist = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
         const resetNumero = getNextSuggestedInvoiceNumber(cotizacionPrefix, offlineHist);
-        const resetObs = "Adelanto 50%, tiempo de entrega...";
+        const resetObs = "";
         const resetItems: CotizacionItem[] = [
           { id: "1", producto: "", cantidad: 1, unidad: "Millar", valorUnitario: 0, confirmed: false }
         ];
@@ -718,101 +1104,108 @@ export default function App() {
     });
   };
 
-  // helper function to intercept and convert "oklch" color declarations to browser-resolved "rgb" colors
-  // to prevent html2canvas / html2pdf stylesheet parser from crashing on unsupported oklch color syntax.
-  const withOklchSafeStyles = async <T,>(action: () => Promise<T>): Promise<T> => {
-    // 1. Create a dummy div to leverage the browser's native CSS engine for oklch-to-rgb conversion
-    const tempDiv = document.createElement("div");
-    tempDiv.style.display = "none";
-    document.body.appendChild(tempDiv);
+  // Nomenclatura oficial exigida: ONE COTIZACIÓN 2026-10-(ingresar el número de cotización)
+  const getFullQuotationFilename = (prefix = cotizacionPrefix, numero = cotizacionNumero) => {
+    let cleanNum = String(numero || "00001").trim();
+    if (cleanNum.startsWith("2026-10-")) {
+      cleanNum = cleanNum.replace("2026-10-", "");
+    }
+    cleanNum = cleanNum.replace(/^[ -]+/, "").trim() || "00001";
+    return `ONE COTIZACIÓN 2026-10-${cleanNum}`;
+  };
 
-    const convertOklch = (oklchStr: string): string => {
-      try {
-        tempDiv.style.color = "";
-        tempDiv.style.color = oklchStr;
-        const rgb = window.getComputedStyle(tempDiv).color;
-        return rgb && !rgb.includes("oklch") ? rgb : "rgb(15, 23, 42)";
-      } catch {
-        return "rgb(15, 23, 42)";
-      }
-    };
-
-    // 2. Fetch all stylesheets present in document.styleSheets and extract all CSS rules
-    let aggregatedCss = "";
-    const styleSheetCount = document.styleSheets.length;
-    
-    for (let i = 0; i < styleSheetCount; i++) {
-      const sheet = document.styleSheets[i];
-      try {
-        const rules = sheet.cssRules || sheet.rules;
-        if (rules) {
-          for (let j = 0; j < rules.length; j++) {
-            aggregatedCss += rules[j].cssText + "\n";
-          }
-        }
-      } catch (e) {
-        // Fallback for CORS-locked cross-origin stylesheets or programmatic stylesheets
-        if (sheet.ownerNode) {
-          if (sheet.ownerNode.nodeName === "STYLE") {
-            aggregatedCss += (sheet.ownerNode as HTMLStyleElement).innerHTML + "\n";
-          }
-        }
-      }
+  // Descarga directa de archivo PDF con la nomenclatura requerida: ONE COTIZACIÓN 2026-10-XXXXX.pdf
+  const handleDownloadDirectPDF = async (targetQuote?: Cotizacion | null) => {
+    // Si se pasa una cotización del historial que no está en el lienzo activo, se carga primero
+    if (targetQuote && targetQuote.id !== `${cotizacionPrefix}${cotizacionNumero}`) {
+      handleCargarQuote(targetQuote);
+      await new Promise(resolve => setTimeout(resolve, 350));
     }
 
-    // 3. Scan and convert all oklch() color codes in the aggregated CSS string
-    const matches = aggregatedCss.match(/oklch\([^)]+\)/g);
-    if (matches) {
-      const uniqueMatches = Array.from(new Set(matches));
-      uniqueMatches.forEach(match => {
-        const rgbColor = convertOklch(match);
-        const escapedMatch = match.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-        aggregatedCss = aggregatedCss.replace(new RegExp(escapedMatch, 'g'), rgbColor);
-      });
+    const validItems = items.filter(i => i.producto.trim() !== "");
+    if (!validItems.length && !targetQuote) {
+      showNotification("Debe tener al menos un ítem con descripción para poder generar la cotización.", "info");
+      return;
     }
 
-    // 4. Create a single, temporary, oklch-free <style> block
-    const tempStyle = document.createElement("style");
-    tempStyle.setAttribute("data-temp-oklch-safe", "true");
-    tempStyle.innerHTML = aggregatedCss;
-    document.head.appendChild(tempStyle);
+    setLoading(true);
+    const qNum = targetQuote ? targetQuote.numero : cotizacionNumero;
+    const qPrefix = targetQuote ? targetQuote.prefix : cotizacionPrefix;
+    const pdfFilename = `${getFullQuotationFilename(qPrefix, qNum)}.pdf`;
+    showNotification(`Generando "${pdfFilename}"...`, "info");
 
-    // 5. Temporarily disable all original <style> and <link> elements
-    const styleAndLinkElements = Array.from(document.querySelectorAll("style, link[rel='stylesheet']")) as HTMLElement[];
-    const disabledElements: HTMLElement[] = [];
-    
-    styleAndLinkElements.forEach(el => {
-      if (el !== tempStyle) {
-        if (el.tagName === "LINK" && !(el as HTMLLinkElement).disabled) {
-          (el as HTMLLinkElement).disabled = true;
-          disabledElements.push(el);
-        } else if (el.tagName === "STYLE" && !(el as HTMLStyleElement).disabled) {
-          (el as HTMLStyleElement).disabled = true;
-          disabledElements.push(el);
-        }
-      }
-    });
-
-    if (tempDiv.parentNode) {
-      tempDiv.parentNode.removeChild(tempDiv);
-    }
+    const previousDocTitle = document.title;
+    document.title = getFullQuotationFilename(qPrefix, qNum);
 
     try {
-      return await action();
-    } finally {
-      // 6. Restore all original stylesheets and cleanup the temporary style tag
-      disabledElements.forEach(el => {
-        if (el.tagName === "LINK") {
-          (el as HTMLLinkElement).disabled = false;
-        } else if (el.tagName === "STYLE") {
-          (el as HTMLStyleElement).disabled = false;
+      const docElement = document.getElementById("main-cotizador-sheet");
+      if (!docElement) throw new Error("Elemento de cotización no encontrado");
+
+      // Aplicar clase temporal para que los inputs se muestren limpios sin bordes durante la captura
+      docElement.classList.add("pdf-capture-mode");
+      await new Promise(resolve => setTimeout(resolve, 250));
+
+      const canvas = await html2canvas(docElement, {
+        scale: 2.5,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        windowWidth: 920,
+        ignoreElements: (element) => {
+          return element.classList.contains("no-print") || 
+                 element.classList.contains("no-pdf") ||
+                 element.tagName === "BUTTON";
         }
       });
-      tempStyle.remove();
+
+      docElement.classList.remove("pdf-capture-mode");
+
+      const imgData = canvas.toDataURL("image/jpeg", 0.98);
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4"
+      });
+
+      const pdfPageWidth = 210;
+      const pdfPageHeight = 297;
+      const margin = 4;
+      const contentWidth = pdfPageWidth - (margin * 2);
+      const contentHeight = (canvas.height * contentWidth) / canvas.width;
+
+      if (contentHeight <= (pdfPageHeight - margin * 2)) {
+        pdf.addImage(imgData, "JPEG", margin, margin, contentWidth, contentHeight, undefined, "FAST");
+      } else {
+        let heightLeft = contentHeight;
+        let position = margin;
+
+        pdf.addImage(imgData, "JPEG", margin, position, contentWidth, contentHeight, undefined, "FAST");
+        heightLeft -= (pdfPageHeight - margin * 2);
+
+        while (heightLeft > 0) {
+          position = heightLeft - contentHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, "JPEG", margin, position, contentWidth, contentHeight, undefined, "FAST");
+          heightLeft -= (pdfPageHeight - margin * 2);
+        }
+      }
+
+      pdf.save(pdfFilename);
+      showNotification(`¡Archivo "${pdfFilename}" descargado exitosamente!`, "success");
+    } catch (err) {
+      console.error("Error al generar PDF:", err);
+      showNotification("Abriendo vista para impresión de alta calidad...", "info");
+      window.print();
+    } finally {
+      document.title = previousDocTitle;
+      const docElement = document.getElementById("main-cotizador-sheet");
+      if (docElement) docElement.classList.remove("pdf-capture-mode");
+      setLoading(false);
+      setPreviewMode(false);
     }
   };
 
-  // Modern print PDF handler using native browser engine
+  // Diálogo nativo de impresión / Guardar como PDF del navegador
   const handleExportPDF = async () => {
     const validItems = items.filter(i => i.producto.trim() !== "");
     if (!validItems.length) {
@@ -821,24 +1214,26 @@ export default function App() {
     }
 
     setLoading(true);
-    showNotification("Abriendo diálogo de impresión (guardar como PDF)...", "info");
+    const pdfFilename = getFullQuotationFilename();
+    showNotification(`Preparando impresión de "${pdfFilename}.pdf"...`, "info");
 
-    const previousPreviewMode = previewMode;
-    // Set to preview mode to render cleanest look (no outline inputs, hidden action keys)
-    setPreviewMode(true);
+    const previousDocTitle = document.title;
+    document.title = pdfFilename;
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300));
       window.print();
     } catch (err) {
       console.error(err);
-      showNotification("Error al intentar renderizar PDF.", "error");
+      showNotification("Error al intentar abrir el diálogo de impresión.", "error");
     } finally {
-      setPreviewMode(previousPreviewMode);
+      document.title = previousDocTitle;
       setLoading(false);
+      setPreviewMode(false);
     }
   };
 
+  // Captura de imagen corporativa en PNG de alta resolución
   const handleCaptureScreenshot = async () => {
     const validItems = items.filter(i => i.producto.trim() !== "");
     if (!validItems.length) {
@@ -847,35 +1242,37 @@ export default function App() {
     }
 
     setLoading(true);
-    showNotification("Generando captura de pantalla de alta resolución...", "info");
+    const imgFilename = `${getFullQuotationFilename()}.png`;
+    showNotification(`Generando captura "${imgFilename}"...`, "info");
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 350));
+      await new Promise(resolve => setTimeout(resolve, 250));
       
       const docElement = document.getElementById("main-cotizador-sheet");
       if (docElement) {
-        const imgData = await withOklchSafeStyles(async () => {
-          const canvas = await html2canvas(docElement, {
-            scale: 3, // 3x scale makes it super crisp for sharing on WhatsApp or email
-            useCORS: true,
-            backgroundColor: "#ffffff",
-            logging: false,
-            scrollX: 0,
-            scrollY: 0,
-            windowWidth: docElement.scrollWidth,
-            windowHeight: docElement.scrollHeight
-          });
-          return canvas.toDataURL("image/png", 1.0);
+        docElement.classList.add("pdf-capture-mode");
+        const canvas = await html2canvas(docElement, {
+          scale: 3,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+          logging: false,
+          ignoreElements: (element) => {
+            return element.classList.contains("no-print") || 
+                   element.classList.contains("no-pdf") ||
+                   element.tagName === "BUTTON";
+          }
         });
+        docElement.classList.remove("pdf-capture-mode");
         
+        const imgData = canvas.toDataURL("image/png", 1.0);
         const link = document.createElement("a");
         link.href = imgData;
-        link.download = `ONE_cotizacion_${cotizacionPrefix}${cotizacionNumero}.png`;
+        link.download = imgFilename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         
-        showNotification("¡Captura de pantalla descargada correctamente como imagen PNG corporativa!", "success");
+        showNotification(`¡Captura descargada correctamente como "${imgFilename}"!`, "success");
       } else {
         showNotification("No se encontró el contenedor de la cotización para capturar.", "error");
       }
@@ -883,8 +1280,248 @@ export default function App() {
       console.error(err);
       showNotification("Error de procesamiento al capturar la imagen.", "error");
     } finally {
+      const docElement = document.getElementById("main-cotizador-sheet");
+      if (docElement) docElement.classList.remove("pdf-capture-mode");
       setLoading(false);
+      setPreviewMode(false);
     }
+  };
+
+  // 1. CIERRE DE VENTAS Y COMUNICACIÓN RÁPIDA: Generador dinámico de mensajes por etapas comerciales
+  const generateSalesMessage = (
+    templateType: "formal" | "seguimiento" | "aprobacion" | "vencimiento",
+    targetQuote?: Cotizacion | null
+  ) => {
+    const qItems = targetQuote ? (targetQuote.items || []) : items;
+    const validItems = qItems.filter(i => i.producto && i.producto.trim() !== "");
+    const qNum = targetQuote ? targetQuote.numero : cotizacionNumero;
+    const qPrefix = targetQuote ? targetQuote.prefix : cotizacionPrefix;
+    const fullNomenclature = getFullQuotationFilename(qPrefix, qNum);
+    const qCliente = targetQuote ? targetQuote.cliente : cliente;
+    const qProyecto = targetQuote ? targetQuote.proyecto : proyecto;
+    const qFecha = targetQuote ? targetQuote.fecha : fechaActual;
+    const qTotal = targetQuote ? targetQuote.total : total;
+    const qMoneda = targetQuote ? (targetQuote.moneda || "S/") : moneda;
+    const qIgv = targetQuote ? targetQuote.igvActivo : igvActivo;
+    const qObs = targetQuote ? (targetQuote.observaciones || "") : observaciones;
+
+    const clientGreeting = qCliente.contacto?.trim() 
+      ? `Estimado(a) *${qCliente.contacto.trim()}*` 
+      : qCliente.nombre?.trim() 
+        ? `Estimado(a) *${qCliente.nombre.trim()}*` 
+        : `Estimado(a) Cliente`;
+
+    const clientSimpleName = qCliente.contacto?.trim() || qCliente.nombre?.trim() || "Cliente";
+
+    const itemsSummary = validItems.map((item, idx) => {
+      const sub = (item.cantidad * item.valorUnitario).toFixed(2);
+      return `  ${idx + 1}. *${item.producto.trim()}*\n     └ Cant: ${item.cantidad} ${item.unidad} | Unit: ${qMoneda} ${(item.valorUnitario || 0).toFixed(2)} | Subtotal: ${qMoneda} ${sub}`;
+    }).join("\n");
+
+    const bankDetails = [
+      bancoSoles ? `• *BCP Soles:* ${bancoSoles} (CCI: ${cciSoles || '00221517976241308924'})` : "",
+      bancoDolares ? `• *ScotiaBank Dólares:* ${bancoDolares}` : "",
+      "• *Titular:* OBED GUEVARA (RUC: 10417585350)",
+      "• *Yape / Plin:* +51 991 820 589"
+    ].filter(Boolean).join("\n");
+
+    if (templateType === "formal") {
+      return `Hola ${clientGreeting} 👋
+Te saluda Obed Guevara de *ONE Espacio Creativo* (Estudio Gráfico & Publicitario).
+
+📄 *COTIZACIÓN FORMAL:*
+*${fullNomenclature}*
+📅 *Fecha:* ${qFecha}
+${qProyecto ? `💼 *Proyecto:* ${qProyecto}\n` : ""}
+📝 *Detalle de Servicios:*
+${itemsSummary || "  1. Servicios de diseño e impresión publicitaria."}
+
+💰 *TOTAL:* *${qMoneda} ${qTotal.toFixed(2)}* ${qIgv ? "(Incluye IGV)" : "(No incluye IGV)"}
+
+💳 *Cuentas Bancarias para Inicio / Adelanto:*
+${bankDetails}
+${qObs.trim() ? `\n📌 *Condiciones:* \n${qObs.trim()}\n` : ""}
+📎 *Adjunto el documento formal en PDF:*
+*${fullNomenclature}.pdf*
+
+Quedo atento a tus comentarios o visto bueno para iniciar la producción de inmediato. ¡Muchas gracias por tu preferencia! ✨`;
+    }
+
+    if (templateType === "seguimiento") {
+      return `Hola ${clientSimpleName} 👋 ¿Cómo estás?
+Te saluda nuevamente Obed Guevara de *ONE Espacio Creativo*.
+
+Quería consultarte si pudiste revisar la propuesta formal que te enviamos:
+📄 *${fullNomenclature}*
+${qProyecto ? `💼 *Proyecto:* ${qProyecto}\n` : ""}💰 *Monto Total:* *${qMoneda} ${qTotal.toFixed(2)}* ${qIgv ? "(Inc. IGV)" : ""}
+
+Tenemos cupos y disponibilidad programada en taller para iniciar la producción esta semana. ¿Tienes alguna consulta sobre los acabados o deseas que afinemos algún detalle del diseño para dar inicio?
+
+Quedo a tu total disposición para ayudarte a cerrar tu pedido hoy mismo. ¡Un abrazo! 🙌`;
+    }
+
+    if (templateType === "aprobacion") {
+      return `¡Excelente ${clientSimpleName}! 🎉
+Confirmamos con mucho gusto la recepción de tu visto bueno para la cotización:
+📄 *${fullNomenclature}*
+${qProyecto ? `💼 *Proyecto:* ${qProyecto}\n` : ""}💰 *Total Acordado:* *${qMoneda} ${qTotal.toFixed(2)}*
+
+Para activar la orden de trabajo en taller de inmediato:
+1️⃣ Realiza el abono del adelanto del 50% (*${qMoneda} ${(qTotal * 0.5).toFixed(2)}*)
+${bankDetails}
+2️⃣ Envíanos la captura o constancia del depósito por este medio.
+
+¡Inmediatamente preparamos el arte final para tu confirmación! Muchas gracias por confiar en ONE Espacio Creativo 🚀`;
+    }
+
+    if (templateType === "vencimiento") {
+      return `Hola ${clientSimpleName} 👋
+Te saluda Obed de *ONE Espacio Creativo*.
+
+Te escribimos para recordarte que la cotización *${fullNomenclature}* por *${qMoneda} ${qTotal.toFixed(2)}* está próxima a cumplir su periodo de validez.
+
+Para mantenerte los precios de materiales y los tiempos de entrega pactados, confírmanos si aprobamos el trabajo hoy.
+
+📎 Documento: *${fullNomenclature}.pdf*
+¡Cualquier duda adicional estamos para servirte! ✨`;
+    }
+
+    return "";
+  };
+
+  // 1. CIERRE DE VENTAS: Apertura del Modal Interactivo de Comunicación Rápida
+  const handleOpenSalesModal = (target?: Cotizacion) => {
+    const q = target || null;
+    setSalesTargetQuote(q);
+    const targetPhone = q ? (q.cliente?.telefono || "") : (cliente.telefono || "");
+    setSalesCustomPhone(targetPhone);
+    const initialMsg = generateSalesMessage("formal", q);
+    setSalesCustomMessage(initialMsg);
+    setSalesTemplate("formal");
+    setCurrentQuoteStatus(q?.status || "pendiente");
+    setSalesModalOpen(true);
+  };
+
+  const handleSelectSalesTemplate = (tmpl: "formal" | "seguimiento" | "aprobacion" | "vencimiento") => {
+    setSalesTemplate(tmpl);
+    setSalesCustomMessage(generateSalesMessage(tmpl, salesTargetQuote));
+  };
+
+  // 1. CIERRE DE VENTAS: Envío formal a WhatsApp
+  const handleExecuteSendWhatsApp = (targetQuote?: Cotizacion | null, customMsg?: string, customPhone?: string) => {
+    const qCliente = targetQuote ? targetQuote.cliente : cliente;
+    const qNum = targetQuote ? targetQuote.numero : cotizacionNumero;
+    const qPrefix = targetQuote ? targetQuote.prefix : cotizacionPrefix;
+    const fullNomenclature = getFullQuotationFilename(qPrefix, qNum);
+
+    const messageToSend = customMsg || salesCustomMessage || generateSalesMessage("formal", targetQuote);
+
+    const rawPhone = customPhone !== undefined ? customPhone : (qCliente.telefono || "");
+    let cleanPhone = rawPhone.replace(/\D/g, "");
+    if (cleanPhone.length === 9 && cleanPhone.startsWith("9")) {
+      cleanPhone = "51" + cleanPhone; // Código de Perú
+    }
+
+    const encodedText = encodeURIComponent(messageToSend);
+    const waUrl = cleanPhone 
+      ? `https://wa.me/${cleanPhone}?text=${encodedText}` 
+      : `https://wa.me/?text=${encodedText}`;
+
+    window.open(waUrl, "_blank");
+    navigator.clipboard?.writeText(messageToSend).catch(() => {});
+    showNotification(`¡WhatsApp preparado para ${fullNomenclature}! Adjunta el archivo "${fullNomenclature}.pdf" en el chat.`, "success");
+  };
+
+  // 1. CIERRE DE VENTAS: Descargar PDF oficial y abrir WhatsApp en 1 Clic
+  const handleDownloadAndOpenWhatsApp = async (targetQuote?: Cotizacion | null, customMsg?: string, customPhone?: string) => {
+    const qNum = targetQuote ? targetQuote.numero : cotizacionNumero;
+    const qPrefix = targetQuote ? targetQuote.prefix : cotizacionPrefix;
+    const fullNomenclature = getFullQuotationFilename(qPrefix, qNum);
+    const pdfFilename = `${fullNomenclature}.pdf`;
+
+    // 1. Descargar el archivo PDF con la nomenclatura requerida
+    await handleDownloadDirectPDF(targetQuote);
+
+    // 2. Abrir WhatsApp y copiar texto
+    setTimeout(() => {
+      handleExecuteSendWhatsApp(targetQuote, customMsg, customPhone);
+      showNotification(`¡PDF "${pdfFilename}" descargado y WhatsApp abierto! Adjunta el archivo en el chat del cliente.`, "success");
+    }, 600);
+  };
+
+  // 1. CIERRE DE VENTAS: Envío por correo electrónico
+  const handleSendEmail = (targetQuote?: Cotizacion | null, customMsg?: string) => {
+    const qNum = targetQuote ? targetQuote.numero : cotizacionNumero;
+    const qPrefix = targetQuote ? targetQuote.prefix : cotizacionPrefix;
+    const fullNomenclature = getFullQuotationFilename(qPrefix, qNum);
+
+    const subject = encodeURIComponent(`Cotización: ${fullNomenclature} - ONE Espacio Creativo`);
+    const body = encodeURIComponent(customMsg || salesCustomMessage || generateSalesMessage("formal", targetQuote));
+    
+    const mailtoUrl = `mailto:?subject=${subject}&body=${body}`;
+    window.location.href = mailtoUrl;
+    showNotification(`Abriendo correo para ${fullNomenclature}. Adjunte el PDF: ${fullNomenclature}.pdf`, "info");
+  };
+
+  // 1. CIERRE DE VENTAS: Actualizar estado de cotización en el pipeline
+  const handleUpdateQuoteStatus = async (quoteId: string, newStatus: "pendiente" | "aprobada" | "rechazada") => {
+    try {
+      setCurrentQuoteStatus(newStatus);
+      setHistoryList(prev => prev.map(q => q.id === quoteId ? { ...q, status: newStatus } : q));
+      
+      let offlineHist = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
+      offlineHist = offlineHist.map((q: any) => q.id === quoteId ? { ...q, status: newStatus } : q);
+      localStorage.setItem("one_hist_checkpoint1", JSON.stringify(offlineHist));
+
+      const db = getActiveFirebaseDb();
+      if (db) {
+        const docRef = doc(db, "cotizaciones", quoteId);
+        await setDoc(docRef, { status: newStatus }, { merge: true });
+      }
+
+      showNotification(`Estado de cotización actualizado a: ${newStatus.toUpperCase()}`, "success");
+    } catch (err) {
+      console.error("Error updating quote status:", err);
+    }
+  };
+
+  // Envío tradicional directo por WhatsApp (fallback rápido)
+  const handleShareWhatsApp = (targetQuote?: Cotizacion) => {
+    handleOpenSalesModal(targetQuote);
+  };
+
+  // 1. CIERRE DE VENTAS: Duplicar / Clonar Cotización existente con nuevo correlativo
+  const handleCloneQuote = (sourceQuote?: Cotizacion) => {
+    const offlineHist = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
+    const nextNum = getNextSuggestedInvoiceNumber(cotizacionPrefix, offlineHist);
+
+    if (sourceQuote) {
+      if (sourceQuote.cliente) setCliente({ ...sourceQuote.cliente });
+      if (sourceQuote.proyecto) setProyecto(`${sourceQuote.proyecto} (Copia)`);
+      if (sourceQuote.items) {
+        const cloned = sourceQuote.items.map(item => ({
+          ...item,
+          id: Math.random().toString(36).substring(7)
+        }));
+        setItems(cloned);
+      }
+      if (sourceQuote.observaciones) setObservaciones(sourceQuote.observaciones);
+      if (sourceQuote.igvActivo !== undefined) setIgvActivo(sourceQuote.igvActivo);
+      if (sourceQuote.moneda) setMoneda(sourceQuote.moneda);
+      if (sourceQuote.discountPercentage !== undefined) setDiscountPercentage(sourceQuote.discountPercentage);
+      if (sourceQuote.themeColor) setThemeColor(sourceQuote.themeColor);
+    } else {
+      if (proyecto) setProyecto(`${proyecto} (Copia)`);
+      const cloned = items.map(item => ({
+        ...item,
+        id: Math.random().toString(36).substring(7)
+      }));
+      setItems(cloned);
+    }
+
+    setCotizacionNumero(nextNum);
+    setHistoryOpen(false);
+    showNotification(`¡Cotización clonada con éxito! Nuevo correlativo asignado: N° ${nextNum}.`, "success");
   };
 
   // Edit / Add / Remove row managers
@@ -1074,7 +1711,7 @@ export default function App() {
       
       {/* Dynamic Toast System */}
       {toast.message && (
-        <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl transition-all duration-300 transform translate-y-0 scale-100 max-w-md ${
+        <div className={`no-print print:hidden fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl transition-all duration-300 transform translate-y-0 scale-100 max-w-md ${
           toast.type === "success" ? "bg-emerald-600 text-white" :
           toast.type === "error" ? "bg-rose-600 text-white" : "bg-[#040d16] text-[#2CB1C9] border border-[#2CB1C9]/30"
         }`}>
@@ -1086,7 +1723,7 @@ export default function App() {
 
       {/* Loading Overlay */}
       {loading && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/60 backdrop-blur-sm transition-all text-center">
+        <div className="no-print print:hidden fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/60 backdrop-blur-sm transition-all text-center">
           <div className="bg-white p-6 sm:p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-4 max-w-xs border border-slate-100">
             <Loader2 className="w-12 h-12 text-[#2CB1C9] animate-spin" />
             <p className="text-xs font-black uppercase tracking-wider text-slate-800">Generando Cotización...</p>
@@ -1096,19 +1733,43 @@ export default function App() {
 
       {/* Preview header reminder */}
       {previewMode && (
-        <div className="bg-[#2CB1C9] text-white px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between sticky top-0 z-40 rounded-xl max-w-[900px] w-full mx-auto shadow-md mb-4 gap-3 animate-fade-in select-none">
+        <div className="no-print print:hidden bg-[#2CB1C9] text-white px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between sticky top-0 z-40 rounded-xl max-w-[900px] w-full mx-auto shadow-md mb-4 gap-3 animate-fade-in select-none">
           <div className="flex items-center gap-2">
             <Eye className="w-4 h-4 animate-pulse" />
             <span className="text-xs font-bold tracking-wider uppercase">VISTA PREVIA DEL DOCUMENTO</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => handleOpenSalesModal()}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
+              title="Abrir panel de Cierre de Ventas y WhatsApp"
+            >
+              <Rocket className="w-3.5 h-3.5 text-emerald-200" />
+              <span>Cierre & WhatsApp</span>
+            </button>
+            <button
+              onClick={() => handleDownloadDirectPDF()}
+              className="bg-[#040D16] hover:bg-black text-[#2CB1C9] border border-[#2CB1C9]/50 text-xs font-bold px-3.5 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
+              title={`Descargar archivo PDF: ${getFullQuotationFilename()}.pdf`}
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Descargar PDF</span>
+            </button>
             <button
               onClick={handleCaptureScreenshot}
-              className="bg-[#040D16] hover:bg-black text-[#2CB1C9] border border-[#2CB1C9]/30 text-xs font-semibold px-4 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
-              title="Tomar una captura de pantalla de alta resolución de la cotización"
+              className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+              title="Descargar imagen PNG de alta resolución"
             >
-              <Camera className="w-3.5 h-3.5 animate-bounce" />
-              <span>Captura de Imagen</span>
+              <Camera className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Captura PNG</span>
+            </button>
+            <button
+              onClick={handleExportPDF}
+              className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+              title="Abrir diálogo de impresión del navegador"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Imprimir</span>
             </button>
             <button
               onClick={() => setPreviewMode(false)}
@@ -1143,70 +1804,89 @@ export default function App() {
         =========================================================== 
       */}
       {!previewMode && (
-        <div className="max-w-[900px] w-full mx-auto bg-slate-900 text-white rounded-xl shadow-md p-4 mb-5 border border-slate-800 animate-fade-in text-xs select-none">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+        <div className="no-print print:hidden max-w-[900px] w-full mx-auto bg-slate-900 text-white rounded-xl shadow-md p-4 mb-5 border border-slate-800 animate-fade-in text-xs select-none">
+          <div className="flex flex-col gap-3.5">
+            {/* Header with live cloud status */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <Database className="w-4 h-4 text-[#2CB1C9] animate-pulse shrink-0" />
                 <span className="font-extrabold uppercase tracking-wider text-slate-200 text-[11px]">
-                  Base de Datos & Sincronización
+                  Base de Datos & Sincronización en la Nube
                 </span>
               </div>
-              <div className="flex items-center gap-1 bg-slate-950/80 px-2.5 py-1 rounded-full border border-slate-800 text-[10px] font-mono">
-                <span className="text-slate-400">Canal:</span>
-                {dbSource === "firebase" ? (
-                  <span className="text-cyan-400 flex items-center gap-1 font-bold">
-                    <Cloud className="w-3 h-3 animate-ping" /> Nube Firestore
-                  </span>
-                ) : dbSource === "server" ? (
-                  <span className="text-emerald-400 flex items-center gap-1 font-bold">
-                    <Server className="w-3 h-3" /> API Servidor
-                  </span>
-                ) : (
-                  <span className="text-yellow-450 flex items-center gap-1 font-bold">
-                    <WifiOff className="w-3 h-3" /> Dispositivo (Local)
-                  </span>
-                )}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-slate-950/90 px-3 py-1 rounded-full border border-slate-800 text-[10.5px] font-mono">
+                  <span className="text-slate-400">Canal:</span>
+                  {dbSource === "firebase" ? (
+                    <span className="text-cyan-400 flex items-center gap-1.5 font-bold">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
+                      </span>
+                      <span>Nube Firestore (Multi-dispositivo)</span>
+                    </span>
+                  ) : dbSource === "server" ? (
+                    <span className="text-emerald-400 flex items-center gap-1 font-bold">
+                      <Server className="w-3 h-3" /> API Servidor
+                    </span>
+                  ) : (
+                    <span className="text-amber-400 flex items-center gap-1 font-bold">
+                      <WifiOff className="w-3 h-3" /> Solo Dispositivo (Local)
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-4">
+            {/* Persistence Mode Selectors & Global Action Tools */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* Channel buttons */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold text-slate-400 text-[11px]">Persistencia Activa:</span>
+                <span className="font-semibold text-slate-400 text-[11px]">Modo de Guardado:</span>
                 <div className="inline-flex bg-slate-950 p-1 rounded-lg border border-slate-850">
                   <button
+                    type="button"
+                    onClick={() => {
+                      setDbSource("firebase");
+                      localStorage.setItem("one_db_source", "firebase");
+                      showNotification("Nube Firebase Firestore activa. Tus cotizaciones se sincronizan entre todos tus dispositivos.", "success");
+                      fetchHistory();
+                    }}
+                    className={`px-3 py-1.5 rounded font-bold transition-all cursor-pointer flex items-center gap-1.5 text-[11px] ${
+                      dbSource === "firebase"
+                        ? "bg-cyan-600 text-white shadow-sm"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                    title="Almacena en Google Cloud Firestore. Accesible desde cualquier dispositivo (celular, laptop, tablet)"
+                  >
+                    <Cloud className="w-3.5 h-3.5" />
+                    <span>Nube Firestore</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => {
                       setDbSource("offline");
                       localStorage.setItem("one_db_source", "offline");
-                      showNotification("Sincronización configurada en modo local (Dispositivo).", "info");
+                      showNotification("Modo Solo Dispositivo activo. Se guarda en la memoria de este navegador.", "info");
                     }}
                     className={`px-3 py-1.5 rounded font-bold transition-all cursor-pointer flex items-center gap-1.5 text-[11px] ${
                       dbSource === "offline"
                         ? "bg-amber-600 text-white shadow-sm"
                         : "text-slate-400 hover:text-white"
                     }`}
+                    title="Guarda únicamente en este navegador (sin conexión a la nube)"
                   >
                     <WifiOff className="w-3.5 h-3.5" />
-                    <span>Dispositivo</span>
+                    <span>Solo Dispositivo</span>
                   </button>
 
                   <button
-                    onClick={async () => {
-                      const { getAccessToken, googleSignIn } = await import("./googleAuth");
-                      let token = getAccessToken();
-                      if (!token) {
-                        try {
-                          await googleSignIn();
-                          showNotification("Autenticación con Google exitosa para Servidor API.", "success");
-                        } catch (err) {
-                           console.error(err);
-                           showNotification("Error de autenticación.", "error");
-                           return;
-                        }
-                      }
+                    type="button"
+                    onClick={() => {
                       setDbSource("server");
                       localStorage.setItem("one_db_source", "server");
-                      showNotification("Conectado con el servidor Cloud SQL.", "success");
+                      showNotification("Servidor central API seleccionado.", "success");
                       fetchHistory();
                     }}
                     className={`px-3 py-1.5 rounded font-bold transition-all cursor-pointer flex items-center gap-1.5 text-[11px] ${
@@ -1214,92 +1894,116 @@ export default function App() {
                         ? "bg-emerald-600 text-white shadow-sm"
                         : "text-slate-400 hover:text-white"
                     }`}
+                    title="Guarda a través de los servicios API del servidor"
                   >
                     <Server className="w-3.5 h-3.5" />
-                    <span>Servidor API (PostgreSQL)</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setDbSource("firebase");
-                      localStorage.setItem("one_db_source", "firebase");
-                      const db = getActiveFirebaseDb();
-                      if (!db) {
-                        showNotification("Se seleccionó Firebase, pero requiere configurar sus credenciales.", "info");
-                        setShowDbSettings(true);
-                      } else {
-                        showNotification("Base de datos en la nube Firebase Firestore habilitada.", "success");
-                        fetchHistory();
-                      }
-                    }}
-                    className={`px-3 py-1.5 rounded font-bold transition-all cursor-pointer flex items-center gap-1.5 text-[11px] ${
-                      dbSource === "firebase"
-                        ? "bg-cyan-600 text-white shadow-sm"
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    <Cloud className="w-3.5 h-3.5" />
-                    <span>Nube Firebase</span>
-                  </button>
-
-                  <button
-                    onClick={async () => {
-                      setDbSource("gsheets");
-                      localStorage.setItem("one_db_source", "gsheets");
-                      showNotification("Servicio de Google Sheets seleccionado.", "info");
-                      
-                      // Auto-trigger sign-in if not signed in
-                      const token = getAccessToken();
-                      if (!token) {
-                        try {
-                          await googleSignIn();
-                          showNotification("Autenticación con Google exitosa.", "success");
-                        } catch (err: any) {
-                           console.error(err);
-                           showNotification("Error de autenticación con Google.", "error");
-                        }
-                      }
-                    }}
-                    className={`px-3 py-1.5 rounded font-bold transition-all cursor-pointer flex items-center gap-1.5 text-[11px] ${
-                      dbSource === "gsheets"
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    <Globe className="w-3.5 h-3.5" />
-                    <span>Google Sheets</span>
+                    <span>Servidor API</span>
                   </button>
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              {/* Multi-device sync & Backup tools */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleSyncCloudAndLocal}
+                  disabled={loading}
+                  className="bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 px-2.5 py-1.5 rounded-lg transition-all font-bold cursor-pointer flex items-center gap-1.5 text-[11px] disabled:opacity-50"
+                  title="Sincronizar y unificar cotizaciones entre el dispositivo y la nube"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                  <span>Sincronizar Nube ↔ Local</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportBackupJson}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg transition-all font-bold cursor-pointer flex items-center gap-1.5 text-[11px]"
+                  title="Descargar copia de seguridad física de todas las cotizaciones y clientes en archivo JSON"
+                >
+                  <Download className="w-3.5 h-3.5 text-slate-300" />
+                  <span>Respaldo JSON</span>
+                </button>
+
+                <label 
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1.5 rounded-lg transition-all font-bold cursor-pointer flex items-center gap-1.5 text-[11px]"
+                  title="Restaurar o transferir cotizaciones desde un archivo de respaldo JSON"
+                >
+                  <Upload className="w-3.5 h-3.5 text-slate-300" />
+                  <span>Restaurar JSON</span>
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleImportBackupJson}
+                    className="hidden"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  className="bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 px-2.5 py-1.5 rounded-lg transition-all font-bold cursor-pointer flex items-center gap-1.5 text-[11px]"
+                  title="Descargar reporte consolidado de cotizaciones en formato CSV compatible con Excel"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Excel (CSV)</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setShowDbSettings(!showDbSettings)}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-100 px-3 py-1 rounded transition-all font-bold border border-slate-700 cursor-pointer flex items-center gap-1 text-[11px]"
+                  className="bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-slate-200 p-1.5 rounded-lg border border-slate-800 transition-all cursor-pointer"
+                  title="Ajustes técnicos de conexión"
                 >
                   <Settings className="w-3.5 h-3.5" />
-                  <span>Configurar BD</span>
                 </button>
               </div>
             </div>
 
+            {/* Informative helper note */}
+            <div className="bg-slate-950/50 border border-slate-850 rounded-lg p-2.5 flex items-start gap-2 text-[10.5px] leading-relaxed text-slate-350">
+              <span className="text-cyan-400 font-bold shrink-0 mt-0.5">ℹ️</span>
+              <p>
+                {dbSource === "firebase" ? (
+                  <>
+                    <strong className="text-cyan-300 font-semibold">Nube Firestore Activa: </strong> 
+                    Cada cotización que guardes se almacena en tiempo real en Google Cloud Firestore y en la memoria de este navegador. Puedes acceder a tu cotizador desde tu teléfono móvil, tablet u otra computadora y tus cotizaciones estarán disponibles.
+                  </>
+                ) : dbSource === "offline" ? (
+                  <>
+                    <strong className="text-amber-300 font-semibold">Modo Local: </strong> 
+                    Las cotizaciones se conservan exclusivamente en la memoria de este navegador. Usa el botón <em className="text-slate-200">"Sincronizar Nube ↔ Local"</em> o <em className="text-slate-200">"Respaldo JSON"</em> para respaldar tus datos en la nube o en un archivo.
+                  </>
+                ) : (
+                  <>
+                    <strong className="text-emerald-300 font-semibold">Servidor Central: </strong> 
+                    Las cotizaciones se procesan a través de los servicios del servidor web.
+                  </>
+                )}
+              </p>
+            </div>
+
+            {/* Advanced connection panel (optional for advanced users) */}
             {showDbSettings && (
-              <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 animate-fade-in mt-1">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-extrabold text-[#2CB1C9] uppercase text-[10px] tracking-wider">Credenciales de Firebase Web SDK</span>
-                  <span className="text-[9px] text-slate-500">Perfecto para Google Drive, Capacitor e independientes</span>
+              <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 animate-fade-in mt-1 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-[#2CB1C9] uppercase text-[10px] tracking-wider">
+                    Configuración Avanzada de Firestore Cloud
+                  </span>
+                  <span className="text-[9px] text-slate-400 font-mono">
+                    Proyecto: {defaultFirebaseConfig.projectId}
+                  </span>
                 </div>
-                <p className="text-slate-450 mb-2 leading-normal text-[10px]">
-                  Copia y pega el fragmento de configuración de tu aplicación web desde Firebase Console (el objeto JSON con apiKey, authDomain, projectId, etc.):
+                <p className="text-slate-450 leading-normal text-[10px]">
+                  La aplicación viene preconfigurada para conectarse directamente a la nube Firestore sin requerir autenticación manual. Si deseas usar un proyecto personalizado propio, puedes ingresar el JSON aquí:
                 </p>
                 <textarea
                   value={firebaseConfigStr}
                   onChange={(e) => setFirebaseConfigStr(e.target.value)}
-                  placeholder={`{\n  "apiKey": "AIzaSy...",\n  "authDomain": "one-estudio.firebaseapp.com",\n  "projectId": "one-estudio",\n  "storageBucket": "one-estudio.appspot.com",\n  "messagingSenderId": "...",\n  "appId": "..."\n}`}
-                  className="w-full h-24 bg-slate-900 border border-slate-800 rounded p-2 text-slate-200 font-mono text-[10px] focus:outline-none focus:border-[#2CB1C9]"
+                  placeholder={`{\n  "apiKey": "${defaultFirebaseConfig.apiKey}",\n  "projectId": "${defaultFirebaseConfig.projectId}",\n  "authDomain": "${defaultFirebaseConfig.authDomain}"\n}`}
+                  className="w-full h-20 bg-slate-900 border border-slate-800 rounded p-2 text-slate-200 font-mono text-[10px] focus:outline-none focus:border-[#2CB1C9]"
                 />
-                <div className="flex justify-end gap-2 mt-3">
+                <div className="flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => {
@@ -1307,11 +2011,11 @@ export default function App() {
                       localStorage.removeItem("one_firebase_config_keys");
                       firestoreInstanceDb = null;
                       firebaseInstanceApp = null;
-                      showNotification("Credenciales de Firebase eliminadas.", "info");
+                      showNotification("Restablecido a las credenciales predeterminadas de la nube.", "info");
                     }}
-                    className="bg-red-950/40 hover:bg-red-950/60 text-red-300 px-3 py-1 rounded font-semibold text-[10px] cursor-pointer"
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded font-semibold text-[10px] cursor-pointer"
                   >
-                    Borrar Credenciales
+                    Restablecer Predeterminadas
                   </button>
                   <button
                     type="button"
@@ -1337,9 +2041,9 @@ export default function App() {
                         showNotification("Formato JSON inválido. Revisa las comillas y comas.", "error");
                       }
                     }}
-                    className="bg-[#2CB1C9] hover:bg-[#2CB1C9]/80 text-slate-950 px-4 py-1.5 rounded font-black text-[10px] cursor-pointer uppercase transition-all"
+                    className="bg-[#2CB1C9] hover:bg-[#2CB1C9]/80 text-slate-950 px-3 py-1 rounded font-black text-[10px] cursor-pointer uppercase transition-all"
                   >
-                    Guardar y Conectar
+                    Guardar Personalizada
                   </button>
                 </div>
               </div>
@@ -1386,18 +2090,16 @@ export default function App() {
             <div className="flex items-center gap-1.5 text-xs theme-text font-bold">
               <span>N° COTIZACIÓN:</span>
               <span className="font-extrabold select-none">{cotizacionPrefix}</span>
-              {previewMode ? (
-                <span className="font-extrabold font-sans">{cotizacionNumero}</span>
-              ) : (
-                <input 
-                  type="text" 
-                  value={cotizacionNumero}
-                  onChange={(e) => {
-                    setCotizacionNumero(e.target.value);
-                  }}
-                  className="w-16 text-xs theme-text font-bold font-sans placeholder-slate-400 border-b border-dashed theme-border focus:outline-none focus:border-solid bg-transparent px-1 py-0 text-center"
-                />
-              )}
+              <input 
+                type="text" 
+                value={cotizacionNumero}
+                onChange={(e) => {
+                  setCotizacionNumero(e.target.value);
+                }}
+                className="w-20 text-xs theme-text font-extrabold font-sans placeholder-slate-400 border-b border-dashed theme-border focus:outline-none focus:border-solid bg-transparent px-1 py-0 text-center hover:bg-slate-200/60 rounded transition-colors print:border-none print:bg-transparent"
+                title="Haz clic para modificar el número correlativo de la cotización"
+                placeholder="00001"
+              />
             </div>
           </div>
 
@@ -1786,45 +2488,130 @@ export default function App() {
           <div className="grid grid-cols-1 md:grid-cols-10 print:grid-cols-10 gap-6 print:gap-8 pt-4 border-t border-slate-100">
             
             {/* Direct observations conditions text zone */}
-            <div className="md:col-span-6 print:col-span-6 space-y-2">
-              <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-l-4 theme-border-l pl-3.5 select-none">
-                CONDICIONES
-              </h2>
+            <div className="md:col-span-6 print:col-span-6 space-y-2.5">
+              <div className="flex items-center justify-between border-l-4 theme-border-l pl-3.5 select-none">
+                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  CONDICIONES
+                </h2>
+                {!previewMode && observaciones.trim().length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setObservaciones("");
+                      showNotification("Cajón de condiciones vaciado.", "info");
+                    }}
+                    className="text-[10px] text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 py-0.5 rounded font-bold transition-all cursor-pointer flex items-center gap-1 border border-rose-200"
+                    title="Vaciar cajón de texto de condiciones"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Vaciar Texto</span>
+                  </button>
+                )}
+              </div>
+
               {previewMode ? (
-                <div className="text-[10px] text-slate-500 font-medium leading-relaxed bg-slate-50 p-3.5 print:p-2 rounded border border-slate-200/50 whitespace-pre-line select-text">
-                  {observaciones || "-(Ninguna condición especificada)-"}
+                <div className="text-[10px] text-slate-600 font-medium leading-relaxed bg-slate-50 p-3.5 print:p-2 rounded border border-slate-200/50 whitespace-pre-line select-text">
+                  {observaciones.trim() || "-(Sin condiciones particulares especificadas)-"}
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <textarea 
                     rows={4} 
-                    placeholder="Ej: Pago: 50% de adelanto, tiempo de entrega..."
+                    placeholder="Escribe aquí las condiciones particulares o selecciona plantillas y cláusulas rápidas de abajo..."
                     value={observaciones}
                     onChange={(e) => {
                       setObservaciones(e.target.value);
                     }}
                     className="w-full text-xs p-3 bg-white border border-slate-300 rounded focus:border-slate-550 focus:outline-none transition-all placeholder:text-slate-400 leading-relaxed font-sans font-medium"
                   />
-                  <div className="bg-slate-50 border border-slate-200/60 p-2.5 rounded-lg text-[10px] select-none">
-                    <span className="font-extrabold text-slate-400 block mb-1.5 uppercase text-[9px] tracking-wide">Plantillas Rápidas:</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {CONDICIONES_PRESETS.map((preset) => (
-                        <button
-                          key={preset.label}
-                          onClick={() => {
-                            if (observaciones.trim()) {
-                              setObservaciones(observaciones.trim() + "\n" + preset.text);
-                            } else {
-                              setObservaciones(preset.text);
-                            }
-                          }}
-                          className="bg-white hover:bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200 cursor-pointer transition-all active:scale-95 font-bold shadow-sm flex items-center gap-1"
-                          title="Haz clic para añadir esta cláusula al texto"
-                        >
-                          <span>➕</span>
-                          <span>{preset.label}</span>
-                        </button>
-                      ))}
+                  
+                  {/* Packs Rápidos Coherentes (1 Clic) */}
+                  <div className="bg-slate-50 border border-slate-200/80 p-2.5 rounded-lg text-[10px] select-none space-y-2.5 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-slate-600 uppercase text-[9.5px] tracking-wide flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#2CB1C9]" />
+                        <span>Packs Rápidos Coherentes (1 Clic):</span>
+                      </span>
+                      <span className="text-[9px] text-slate-400">Reemplaza armónicamente todas las cláusulas</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {CONDICIONES_PACKS.map((pack) => {
+                        const isSelected = observaciones === pack.text;
+                        return (
+                          <button
+                            key={pack.id}
+                            type="button"
+                            onClick={() => {
+                              setObservaciones(pack.text);
+                              showNotification(`Plantilla '${pack.label}' aplicada con lógica integral.`, "info");
+                            }}
+                            className={`text-left p-2 rounded-md border transition-all cursor-pointer active:scale-98 ${
+                              isSelected
+                                ? "bg-cyan-50 border-[#2CB1C9] text-cyan-950 font-bold shadow-xs ring-1 ring-[#2CB1C9]/40"
+                                : "bg-white hover:bg-slate-100/90 border-slate-200 text-slate-700 hover:border-slate-300"
+                            }`}
+                          >
+                            <div className="font-extrabold text-[10.5px] text-slate-800 flex items-center justify-between">
+                              <span>{pack.label}</span>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-[#2CB1C9] stroke-[3]" />}
+                            </div>
+                            <p className="text-[9px] text-slate-500 font-normal leading-tight mt-0.5">{pack.desc}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Cláusulas Específicas por Categoría con Reemplazo Inteligente */}
+                    <div className="pt-2 border-t border-slate-200/70 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-slate-600 uppercase text-[9px] tracking-wide block">
+                          Cláusulas por Categoría (Sin contradicciones internas):
+                        </span>
+                        <span className="text-[9px] text-slate-400">Al cambiar una opción, sustituye la contradictoria</span>
+                      </div>
+                      
+                      {/* Categorías agrupadas */}
+                      {[
+                        { key: "pago", title: "Forma de Pago" },
+                        { key: "entrega", title: "Tiempo Entrega" },
+                        { key: "validez", title: "Validez Oferta" },
+                        { key: "aprobacion", title: "Visto Bueno" },
+                        { key: "ajustes", title: "Ajustes / Cambios" },
+                        { key: "envio", title: "Entrega / Envío" }
+                      ].map(catGroup => {
+                        const clausulasDeCat = CONDICIONES_CLAUSULAS.filter(c => c.categoria === catGroup.key);
+                        if (!clausulasDeCat.length) return null;
+
+                        return (
+                          <div key={catGroup.key} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                            <span className="text-[9px] font-bold text-slate-400 min-w-[95px] shrink-0 uppercase tracking-tight">
+                              {catGroup.title}:
+                            </span>
+                            <div className="flex flex-wrap gap-1">
+                              {clausulasDeCat.map((cl) => {
+                                const isPresent = observaciones.includes(cl.text.trim());
+                                return (
+                                  <button
+                                    key={cl.label}
+                                    type="button"
+                                    onClick={() => handleApplyConditionClause(cl.categoria, cl.text)}
+                                    className={`px-2 py-0.5 rounded text-[9.5px] font-semibold transition-all cursor-pointer border flex items-center gap-1 ${
+                                      isPresent
+                                        ? "bg-[#2CB1C9] text-white border-[#2CB1C9] shadow-xs font-bold"
+                                        : "bg-white text-slate-700 hover:bg-slate-100 border-slate-250 hover:border-slate-350"
+                                    }`}
+                                    title={isPresent ? "Haz clic para quitar esta cláusula" : `Haz clic para seleccionar (sustituye cualquier otra de ${catGroup.title})`}
+                                  >
+                                    {isPresent && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                    <span>{cl.label}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -1923,49 +2710,79 @@ export default function App() {
         =========================================================== 
       */}
       {!previewMode && (
-        <div className="max-w-[900px] w-full mx-auto mt-6 grid grid-cols-2 sm:flex sm:flex-row items-center justify-end gap-3 px-1 pb-10">
+        <div className="no-print print:hidden max-w-[900px] w-full mx-auto mt-6 flex flex-wrap items-center justify-end gap-2.5 px-1 pb-10">
           
           <button 
+            type="button"
             onClick={handleLimpiarTodo}
-            className="flex-1 sm:flex-initial py-2.5 px-4 bg-slate-400 hover:bg-slate-500 text-white font-extrabold rounded text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-slate-900/10 uppercase"
+            className="py-2.5 px-3.5 bg-slate-400 hover:bg-slate-500 text-white font-extrabold rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-slate-900/10 uppercase"
+            title="Restablecer cotizador para una nueva propuesta"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Limpiar</span>
           </button>
 
           <button 
+            type="button"
+            onClick={() => handleCloneQuote()}
+            className="py-2.5 px-3.5 bg-slate-600 hover:bg-slate-700 text-white font-extrabold rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-slate-600/10 uppercase"
+            title="Duplicar / clonar esta cotización con un nuevo número correlativo"
+          >
+            <Copy className="w-3.5 h-3.5" />
+            <span>Clonar</span>
+          </button>
+
+          <button 
+            type="button"
             onClick={handleSaveToDatabase}
-            className="flex-1 sm:flex-initial py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-emerald-700/10 uppercase"
+            className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-emerald-700/10 uppercase"
+            title="Guardar cotización en la nube Firestore y localmente"
           >
             <Check className="w-3.5 h-3.5" />
             <span>Guardar DB</span>
           </button>
 
           <button 
+            type="button"
             onClick={() => {
               setHistoryOpen(true);
               fetchHistory();
             }}
-            className="col-span-2 sm:col-span-1 py-2.5 px-4 bg-slate-600 hover:bg-slate-700 text-white font-extrabold rounded text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-slate-600/10 uppercase"
+            className="py-2.5 px-3.5 bg-slate-700 hover:bg-slate-800 text-white font-extrabold rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-slate-700/10 uppercase"
+            title="Consultar historial de cotizaciones guardadas"
           >
             <History className="w-3.5 h-3.5" />
             <span>Historial</span>
           </button>
 
           <button 
+            type="button"
             onClick={() => setPreviewMode(true)}
-            className="flex-1 sm:flex-initial py-2.5 px-4 bg-[#2CB1C9] hover:bg-[#2CB1C9]/85 text-white font-extrabold rounded text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-cyan-600/10 uppercase"
+            className="py-2.5 px-4 bg-[#2CB1C9] hover:bg-[#2CB1C9]/85 text-white font-extrabold rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shadow-cyan-600/10 uppercase"
+            title="Vista previa del documento final"
           >
             <Eye className="w-3.5 h-3.5" />
             <span>Vista Previa</span>
           </button>
 
           <button 
-            onClick={handleExportPDF}
-            className="flex-1 sm:col-span-1 py-2.5 px-5 bg-[#040D16] hover:bg-black text-[#2CB1C9] border border-[#2CB1C9] font-black rounded text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md uppercase"
+            type="button"
+            onClick={() => handleOpenSalesModal()}
+            className="py-2.5 px-4.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-lg text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md uppercase active:scale-95"
+            title="Abrir panel de Cierre de Ventas y Comunicación Rápida por WhatsApp"
+          >
+            <Rocket className="w-4 h-4 fill-white/20 text-emerald-200" />
+            <span>Cierre & WhatsApp</span>
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => handleDownloadDirectPDF()}
+            className="py-2.5 px-4 bg-[#040D16] hover:bg-black text-[#2CB1C9] border border-[#2CB1C9] font-black rounded-lg text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md uppercase active:scale-95"
+            title={`Descargar archivo PDF: ${getFullQuotationFilename()}.pdf`}
           >
             <Download className="w-4 h-4" />
-            <span>Generar PDF</span>
+            <span>Descargar PDF</span>
           </button>
 
         </div>
@@ -1973,7 +2790,7 @@ export default function App() {
 
       {/* HISTORIAL MODAL (Matches user's dialog design but styled clean) */}
       {historyOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-[2px] p-4 transition-all animate-fade-in">
+        <div className="no-print print:hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-[2px] p-4 transition-all animate-fade-in">
           <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full flex flex-col overflow-hidden max-h-[80vh] border border-slate-200">
             
             {/* Modal header */}
@@ -2026,17 +2843,71 @@ export default function App() {
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-3 w-full sm:w-auto self-stretch sm:self-center justify-end">
-                      <div className="text-right shrink-0">
+                    <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto self-stretch sm:self-center justify-end">
+                      <div className="text-right shrink-0 mr-1">
                         <span className="text-[8px] uppercase font-bold text-slate-400 block tracking-tight select-none">Total</span>
                         <span className="text-xs font-extrabold text-slate-850 font-sans">S/ {(q.total || 0).toFixed(2)}</span>
                       </div>
+
+                      {/* Estado Pipeline */}
+                      <span className={`text-[8.5px] font-extrabold px-2 py-0.5 rounded-full select-none ${
+                        q.status === 'aprobada' ? 'bg-emerald-100 text-emerald-800' :
+                        q.status === 'rechazada' ? 'bg-rose-100 text-rose-800' :
+                        'bg-amber-100 text-amber-800'
+                      }`}>
+                        {q.status === 'aprobada' ? '🟢 Aprobada' : q.status === 'rechazada' ? '🔴 Cancelada' : '🟡 Pendiente'}
+                      </span>
+
+                      {/* Botón Cierre & WhatsApp */}
                       <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenSalesModal(q);
+                        }}
+                        className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md transition-all cursor-pointer flex items-center gap-1 text-[10.5px] font-bold border border-emerald-200"
+                        title="Abrir panel de Cierre de Ventas y WhatsApp"
+                      >
+                        <Rocket className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="hidden sm:inline">Cierre</span>
+                      </button>
+
+                      {/* Botón Descargar PDF */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadDirectPDF(q);
+                        }}
+                        className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-all cursor-pointer flex items-center gap-1 text-[10.5px] font-bold border border-slate-250"
+                        title={`Descargar PDF: ${getFullQuotationFilename(q.prefix, q.numero)}.pdf`}
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">PDF</span>
+                      </button>
+
+                      {/* Botón Clonar / Duplicar */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCloneQuote(q);
+                        }}
+                        className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-all cursor-pointer flex items-center gap-1 text-[10.5px] font-bold border border-slate-250"
+                        title="Clonar como nueva cotización con nuevo correlativo"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Clonar</span>
+                      </button>
+
+                      {/* Botón Eliminar */}
+                      <button
+                        type="button"
                         onClick={(e) => handleDeleteQuote(q.id, e)}
-                        className="p-2 text-rose-500 hover:bg-rose-50 rounded transition-all cursor-pointer"
+                        className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-md transition-all cursor-pointer border border-transparent hover:border-rose-200"
                         title="Eliminar registro"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -2052,6 +2923,264 @@ export default function App() {
               >
                 Cerrar
               </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 
+        ===========================================================
+        1. CIERRE DE VENTAS Y COMUNICACIÓN RÁPIDA (MODAL EJECUTIVO)
+        =========================================================== 
+      */}
+      {salesModalOpen && (
+        <div className="no-print print:hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-[3px] p-3 sm:p-4 transition-all animate-fade-in font-sans">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full flex flex-col overflow-hidden max-h-[92vh] border border-slate-200">
+            
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-800 bg-[#040D16] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/30">
+                  <Rocket className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+                    Cierre de Ventas y Comunicación Rápida
+                  </h3>
+                  <p className="text-[10.5px] text-cyan-300 font-mono mt-0.5">
+                    Archivo: {getFullQuotationFilename(salesTargetQuote?.prefix, salesTargetQuote?.numero)}.pdf
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSalesModalOpen(false)}
+                className="text-slate-400 hover:text-white transition-all cursor-pointer p-1 rounded-lg hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-slate-50 text-xs">
+              
+              {/* Sales Status Pipeline Selector */}
+              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                    Estado en el Embudo de Ventas:
+                  </span>
+                  <span className="text-xs font-bold text-slate-800">
+                    {currentQuoteStatus === "aprobada" ? "🟢 Venta Cerrada / Aprobada" :
+                     currentQuoteStatus === "rechazada" ? "🔴 Rechazada / No Concretada" :
+                     "🟡 Cotización Enviada (En Seguimiento)"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-250">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const qId = salesTargetQuote ? salesTargetQuote.id : `${cotizacionPrefix}${cotizacionNumero}`;
+                      handleUpdateQuoteStatus(qId, "pendiente");
+                    }}
+                    className={`px-2.5 py-1 rounded text-[10.5px] font-extrabold transition-all cursor-pointer ${
+                      currentQuoteStatus === "pendiente" 
+                        ? "bg-amber-500 text-white shadow-sm" 
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    🟡 Pendiente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const qId = salesTargetQuote ? salesTargetQuote.id : `${cotizacionPrefix}${cotizacionNumero}`;
+                      handleUpdateQuoteStatus(qId, "aprobada");
+                    }}
+                    className={`px-2.5 py-1 rounded text-[10.5px] font-extrabold transition-all cursor-pointer ${
+                      currentQuoteStatus === "aprobada" 
+                        ? "bg-emerald-600 text-white shadow-sm" 
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    🟢 Aprobada
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const qId = salesTargetQuote ? salesTargetQuote.id : `${cotizacionPrefix}${cotizacionNumero}`;
+                      handleUpdateQuoteStatus(qId, "rechazada");
+                    }}
+                    className={`px-2.5 py-1 rounded text-[10.5px] font-extrabold transition-all cursor-pointer ${
+                      currentQuoteStatus === "rechazada" 
+                        ? "bg-rose-600 text-white shadow-sm" 
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    🔴 Cancelada
+                  </button>
+                </div>
+              </div>
+
+              {/* Communication Stage Tabs */}
+              <div>
+                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1.5">
+                  Selecciona la Etapa de Comunicación:
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectSalesTemplate("formal")}
+                    className={`p-2.5 rounded-xl border font-bold text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                      salesTemplate === "formal"
+                        ? "bg-cyan-50 border-cyan-500 text-cyan-900 ring-2 ring-cyan-400/30"
+                        : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
+                    }`}
+                  >
+                    <span className="text-xs flex items-center gap-1.5">🌟 Envío Formal</span>
+                    <span className="text-[9.5px] font-medium text-slate-400 leading-tight">Propuesta, cuentas y PDF</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectSalesTemplate("seguimiento")}
+                    className={`p-2.5 rounded-xl border font-bold text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                      salesTemplate === "seguimiento"
+                        ? "bg-amber-50 border-amber-500 text-amber-900 ring-2 ring-amber-400/30"
+                        : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
+                    }`}
+                  >
+                    <span className="text-xs flex items-center gap-1.5">⚡ Seguimiento</span>
+                    <span className="text-[9.5px] font-medium text-slate-400 leading-tight">Follow-up para cerrar venta</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectSalesTemplate("aprobacion")}
+                    className={`p-2.5 rounded-xl border font-bold text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                      salesTemplate === "aprobacion"
+                        ? "bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-400/30"
+                        : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
+                    }`}
+                  >
+                    <span className="text-xs flex items-center gap-1.5">🤝 Confirmación</span>
+                    <span className="text-[9.5px] font-medium text-slate-400 leading-tight">Visto bueno y pase a taller</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectSalesTemplate("vencimiento")}
+                    className={`p-2.5 rounded-xl border font-bold text-left transition-all cursor-pointer flex flex-col gap-1 ${
+                      salesTemplate === "vencimiento"
+                        ? "bg-purple-50 border-purple-500 text-purple-900 ring-2 ring-purple-400/30"
+                        : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
+                    }`}
+                  >
+                    <span className="text-xs flex items-center gap-1.5">⏳ Vencimiento</span>
+                    <span className="text-[9.5px] font-medium text-slate-400 leading-tight">Urgencia antes de expirar</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Client Quick Phone Contact Field */}
+              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-1.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <label className="text-[10.5px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>WhatsApp Destinatario del Cliente:</span>
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-bold">
+                    {salesTargetQuote?.cliente?.nombre || cliente.nombre || "(Cliente no especificado)"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={salesCustomPhone}
+                    onChange={(e) => setSalesCustomPhone(e.target.value)}
+                    placeholder="Ej: 991820589 o +51 991 820 589"
+                    className="flex-1 p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-cyan-500"
+                  />
+                  <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1.5 rounded-md font-medium border border-slate-250 shrink-0">
+                    🇵🇪 Perú (+51 automático)
+                  </span>
+                </div>
+              </div>
+
+              {/* Message Editor / Preview */}
+              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10.5px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <span>Mensaje Listo para Enviar:</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(salesCustomMessage);
+                      showNotification("Mensaje copiado al portapapeles", "success");
+                    }}
+                    className="text-[10.5px] font-bold text-cyan-600 hover:text-cyan-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Copiar texto</span>
+                  </button>
+                </div>
+                <textarea
+                  rows={8}
+                  value={salesCustomMessage}
+                  onChange={(e) => setSalesCustomMessage(e.target.value)}
+                  className="w-full p-3 bg-slate-50 border border-slate-250 rounded-lg text-xs font-sans text-slate-800 focus:outline-none focus:border-cyan-500 leading-relaxed font-normal"
+                />
+              </div>
+
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div className="p-4 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-2.5">
+              
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadDirectPDF(salesTargetQuote)}
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-lg text-xs transition-all flex items-center gap-1.5 cursor-pointer border border-slate-250"
+                  title="Descargar solo el archivo PDF oficial"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>PDF ({getFullQuotationFilename(salesTargetQuote?.prefix, salesTargetQuote?.numero)}.pdf)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSendEmail(salesTargetQuote, salesCustomMessage)}
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-lg text-xs transition-all flex items-center gap-1.5 cursor-pointer border border-slate-250"
+                  title="Enviar por correo electrónico"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>Correo</span>
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleExecuteSendWhatsApp(salesTargetQuote, salesCustomMessage, salesCustomPhone)}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-lg text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                >
+                  <MessageCircle className="w-4 h-4 fill-white/20" />
+                  <span>Abrir WhatsApp</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDownloadAndOpenWhatsApp(salesTargetQuote, salesCustomMessage, salesCustomPhone)}
+                  className="px-4.5 py-2 bg-gradient-to-r from-[#040D16] to-cyan-900 hover:to-cyan-800 text-cyan-300 border border-cyan-400/50 font-black rounded-lg text-xs transition-all flex items-center gap-2 cursor-pointer shadow-md active:scale-95"
+                  title="Descarga el PDF con la nomenclatura oficial y abre el WhatsApp del cliente con 1 solo clic"
+                >
+                  <Rocket className="w-4 h-4 text-cyan-400" />
+                  <span>Descargar PDF + WhatsApp (1 Clic)</span>
+                </button>
+              </div>
+
             </div>
 
           </div>

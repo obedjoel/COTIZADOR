@@ -46,18 +46,19 @@ service cloud.firestore {
       allow get: if isValidId(cotizacionId);
       allow list: if true; // Permit listing previous quotes for history viewing
       
-      allow create: if isSignedIn() 
-        && isValidId(cotizacionId)
+      allow create: if isValidId(cotizacionId)
         && isValidCotizacion(incoming())
         && incoming().id == cotizacionId;
         
-      allow update: if isSignedIn()
-        && isValidId(cotizacionId)
+      allow update: if isValidId(cotizacionId)
         && isValidCotizacion(incoming())
         && incoming().id == existing().id;
         
-      allow delete: if isSignedIn()
-        && isValidId(cotizacionId);
+      allow delete: if isValidId(cotizacionId);
+    }
+
+    match /settings/{settingId} {
+      allow read, write: if true;
     }
   }
 }

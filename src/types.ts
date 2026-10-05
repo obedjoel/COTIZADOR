@@ -53,4 +53,6 @@ export interface Cotizacion {
   emisorEmail?: string;        // Email of the issuer
   emisorDireccion?: string;    // Address of the issuer
   taxRate?: number;            // Applied custom tax rate %
+  status?: "pendiente" | "aprobada" | "rechazada"; // Pipeline state for sales tracking
+  leadNotes?: string;          // Follow-up notes
 }

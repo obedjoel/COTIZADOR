@@ -6,45 +6,88 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
-@layer utilities {
-  @media print {
-    body {
-      background-color: white !important;
-    }
-    body * {
-      visibility: hidden;
-    }
-    #main-cotizador-sheet, #main-cotizador-sheet * {
-      visibility: visible;
-    }
-    #main-cotizador-sheet {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-      margin: 0;
-      padding: 0;
-      box-shadow: none;
-      border: none;
-      display: table !important;
-    }
-    .print-fixed-header {
-      display: table-header-group !important;
-      position: static !important;
-    }
-    .print-body-content {
-      display: table-row-group !important;
-    }
-    .print-fixed-footer {
-      display: table-footer-group !important;
-      position: static !important;
-    }
-    .no-print {
-      display: none !important;
-    }
-    @page { 
-      size: A4;   
-      margin: 5mm; 
-    }
+/* Helper styles for PDF capture mode */
+.pdf-capture-mode input,
+.pdf-capture-mode textarea,
+.pdf-capture-mode select {
+  border-color: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.pdf-capture-mode .no-pdf,
+.pdf-capture-mode .no-print,
+.pdf-capture-mode button {
+  display: none !important;
+}
+
+/* Clean native browser print styles */
+@media print {
+  @page { 
+    size: A4 portrait;   
+    margin: 8mm 6mm; 
+  }
+
+  *, *::before, *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  html, body {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    min-height: auto !important;
+  }
+
+  /* Hide everything except the cotizador sheet */
+  header,
+  nav,
+  aside,
+  footer:not(.print-fixed-footer),
+  .no-print,
+  .print\\:hidden,
+  button,
+  [role="dialog"],
+  .fixed,
+  .sticky {
+    display: none !important;
+  }
+
+  /* Sheet container styling for printing */
+  #main-cotizador-sheet {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background-color: #ffffff !important;
+  }
+
+  #main-cotizador-sheet input,
+  #main-cotizador-sheet textarea,
+  #main-cotizador-sheet select {
+    border-color: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    padding: 0 !important;
+  }
+
+  /* Prevent page breaks inside table rows or header/footer blocks */
+  .print-fixed-header,
+  .print-fixed-footer,
+  tr,
+  .avoid-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 }
