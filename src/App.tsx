@@ -252,6 +252,8 @@ export default function App() {
   const [observaciones, setObservaciones] = useState<string>("");
   const [igvActivo, setIgvActivo] = useState<boolean>(true);
   const [previewMode, setPreviewMode] = useState<boolean>(false);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const isDocumentClean = previewMode || isExporting;
 
   // Advanced Configurations & Themes Support (With automatic offline-first persistence)
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
@@ -1129,6 +1131,7 @@ export default function App() {
     }
 
     setLoading(true);
+    setIsExporting(true); // Activa modo limpio de documento para renderizar solo lo final
     const qNum = targetQuote ? targetQuote.numero : cotizacionNumero;
     const qPrefix = targetQuote ? targetQuote.prefix : cotizacionPrefix;
     const pdfFilename = `${getFullQuotationFilename(qPrefix, qNum)}.pdf`;
@@ -1138,12 +1141,15 @@ export default function App() {
     document.title = getFullQuotationFilename(qPrefix, qNum);
 
     try {
+      // Esperar brevemente para que React aplique el modo limpio sin controles auxiliares
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       const docElement = document.getElementById("main-cotizador-sheet");
       if (!docElement) throw new Error("Elemento de cotización no encontrado");
 
       // Aplicar clase temporal para que los inputs se muestren limpios sin bordes durante la captura
       docElement.classList.add("pdf-capture-mode");
-      await new Promise(resolve => setTimeout(resolve, 250));
+      await new Promise(resolve => setTimeout(resolve, 150));
 
       const canvas = await html2canvas(docElement, {
         scale: 2.5,
@@ -1154,6 +1160,7 @@ export default function App() {
         ignoreElements: (element) => {
           return element.classList.contains("no-print") || 
                  element.classList.contains("no-pdf") ||
+                 element.classList.contains("clause-builder") ||
                  element.tagName === "BUTTON";
         }
       });
@@ -1169,24 +1176,24 @@ export default function App() {
 
       const pdfPageWidth = 210;
       const pdfPageHeight = 297;
-      const margin = 4;
-      const contentWidth = pdfPageWidth - (margin * 2);
+      // EXACTAMENTE DE CANTO A CANTO (0 márgenes para que ocupe todo el ancho)
+      const contentWidth = pdfPageWidth;
       const contentHeight = (canvas.height * contentWidth) / canvas.width;
 
-      if (contentHeight <= (pdfPageHeight - margin * 2)) {
-        pdf.addImage(imgData, "JPEG", margin, margin, contentWidth, contentHeight, undefined, "FAST");
+      if (contentHeight <= pdfPageHeight) {
+        pdf.addImage(imgData, "JPEG", 0, 0, contentWidth, contentHeight, undefined, "FAST");
       } else {
         let heightLeft = contentHeight;
-        let position = margin;
+        let position = 0;
 
-        pdf.addImage(imgData, "JPEG", margin, position, contentWidth, contentHeight, undefined, "FAST");
-        heightLeft -= (pdfPageHeight - margin * 2);
+        pdf.addImage(imgData, "JPEG", 0, position, contentWidth, contentHeight, undefined, "FAST");
+        heightLeft -= pdfPageHeight;
 
         while (heightLeft > 0) {
           position = heightLeft - contentHeight;
           pdf.addPage();
-          pdf.addImage(imgData, "JPEG", margin, position, contentWidth, contentHeight, undefined, "FAST");
-          heightLeft -= (pdfPageHeight - margin * 2);
+          pdf.addImage(imgData, "JPEG", 0, position, contentWidth, contentHeight, undefined, "FAST");
+          heightLeft -= pdfPageHeight;
         }
       }
 
@@ -1200,8 +1207,8 @@ export default function App() {
       document.title = previousDocTitle;
       const docElement = document.getElementById("main-cotizador-sheet");
       if (docElement) docElement.classList.remove("pdf-capture-mode");
+      setIsExporting(false);
       setLoading(false);
-      setPreviewMode(false);
     }
   };
 
@@ -1214,6 +1221,7 @@ export default function App() {
     }
 
     setLoading(true);
+    setIsExporting(true);
     const pdfFilename = getFullQuotationFilename();
     showNotification(`Preparando impresión de "${pdfFilename}.pdf"...`, "info");
 
@@ -1221,15 +1229,15 @@ export default function App() {
     document.title = pdfFilename;
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 350));
       window.print();
     } catch (err) {
       console.error(err);
       showNotification("Error al intentar abrir el diálogo de impresión.", "error");
     } finally {
       document.title = previousDocTitle;
+      setIsExporting(false);
       setLoading(false);
-      setPreviewMode(false);
     }
   };
 
@@ -1242,11 +1250,12 @@ export default function App() {
     }
 
     setLoading(true);
+    setIsExporting(true);
     const imgFilename = `${getFullQuotationFilename()}.png`;
     showNotification(`Generando captura "${imgFilename}"...`, "info");
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 250));
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       const docElement = document.getElementById("main-cotizador-sheet");
       if (docElement) {
@@ -1259,6 +1268,7 @@ export default function App() {
           ignoreElements: (element) => {
             return element.classList.contains("no-print") || 
                    element.classList.contains("no-pdf") ||
+                   element.classList.contains("clause-builder") ||
                    element.tagName === "BUTTON";
           }
         });
@@ -1282,8 +1292,8 @@ export default function App() {
     } finally {
       const docElement = document.getElementById("main-cotizador-sheet");
       if (docElement) docElement.classList.remove("pdf-capture-mode");
+      setIsExporting(false);
       setLoading(false);
-      setPreviewMode(false);
     }
   };
 
@@ -1703,7 +1713,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
 
   // Re-organize layout numbering safely inside render views
   const confirmedOrNotEmptyItems = items.filter(item => 
-    !previewMode || item.producto.trim() !== ""
+    !isDocumentClean || item.producto.trim() !== ""
   );
 
   return (
@@ -2062,41 +2072,41 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
         className="max-w-[900px] w-full mx-auto bg-white rounded-lg overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all flex flex-col border border-slate-200"
       >
         
-        {/* ENCABEZADO CON LOGO */}
+        {/* ENCABEZADO CON LOGO (Estilo limpio blanco con línea divisoria cyan de canto a canto) */}
         <div className="print-fixed-header w-full">
-          <div className="bg-[#040D16] text-white p-6 sm:px-8 sm:py-5 print:px-8 print:py-4 flex flex-col sm:flex-row print:flex-row items-start sm:items-center print:items-center justify-between border-b-[4px] border-solid theme-border-b">
+          <div className="bg-white text-slate-800 p-6 sm:px-8 sm:py-5 print:px-8 print:py-4 flex flex-col sm:flex-row print:flex-row items-start sm:items-center print:items-center justify-between border-b-[3px] border-solid border-[#2CB1C9]">
             <div className="flex flex-col mb-4 sm:mb-0 print:mb-0">
-              <img src={logoOne} alt="ONE Espacio Creativo Logo" className="h-16 print:h-12 w-auto max-w-[250px] object-contain" />
+              <img src={logoOne} alt="ONE Espacio Creativo Logo" className="h-16 print:h-14 w-auto max-w-[240px] object-contain" />
             </div>
 
-            <div className="text-left sm:text-right print:text-right text-xs space-y-0.5 text-slate-300">
-              <h2 className="text-sm font-bold theme-text tracking-wider uppercase mb-1">OBED GUEVARA</h2>
-              <p className="font-medium">RUC: 10417585350</p>
-              <p className="flex items-center sm:justify-end gap-1.5"><i className='bx bxl-whatsapp text-sm theme-text' /> +51 991 820 589</p>
-              <p className="flex items-center sm:justify-end gap-1.5"><i className='bx bx-envelope text-sm theme-text' /> obedjoel@gmail.com</p>
-              <p className="flex items-center sm:justify-end gap-1.5"><i className='bx bx-map text-sm theme-text' /> Leoncio Prado V7, Paucarpata</p>
+            <div className="text-left sm:text-right print:text-right text-xs space-y-0.5 text-slate-600">
+              <h2 className="text-sm font-extrabold text-[#2CB1C9] tracking-wider uppercase mb-1">OBED GUEVARA</h2>
+              <p className="font-semibold text-slate-700">RUC: 10417585350</p>
+              <p className="flex items-center sm:justify-end gap-1.5"><i className='bx bxl-whatsapp text-sm text-[#2CB1C9]' /> +51 991 820 589</p>
+              <p className="flex items-center sm:justify-end gap-1.5"><i className='bx bx-envelope text-sm text-[#2CB1C9]' /> obedjoel@gmail.com</p>
+              <p className="flex items-center sm:justify-end gap-1.5"><i className='bx bx-map text-sm text-[#2CB1C9]' /> Leoncio Prado V7, Paucarpata</p>
             </div>
           </div>
         </div>
 
         <div className="print-body-content flex-1 max-w-[900px] w-full mx-auto">
-          {/* SECCIÓN FECHA Y NÚMERO */}
-          <div className="flex flex-col sm:flex-row print:flex-row items-start sm:items-center print:items-center justify-between px-6 sm:px-8 print:px-8 py-3.5 print:py-2 bg-slate-100 border-b border-slate-200 gap-2">
+          {/* SECCIÓN FECHA Y NÚMERO (Fondo blanco con línea cyan de canto a canto) */}
+          <div className="flex flex-col sm:flex-row print:flex-row items-start sm:items-center print:items-center justify-between px-6 sm:px-8 print:px-8 py-3 bg-white border-b-[2px] border-solid border-[#2CB1C9] gap-2">
             <div>
-              <p className="text-xs text-slate-600 font-medium select-none">
-                <strong className="text-slate-800">Fecha de Emisión:</strong> {fechaActual || "Cargando..."}
+              <p className="text-xs text-slate-800 font-bold select-none">
+                <strong>Fecha de Emisión:</strong> {fechaActual || "Cargando..."}
               </p>
             </div>
-            <div className="flex items-center gap-1.5 text-xs theme-text font-bold">
+            <div className="flex items-center gap-1.5 text-xs text-slate-800 font-bold">
               <span>N° COTIZACIÓN:</span>
-              <span className="font-extrabold select-none">{cotizacionPrefix}</span>
+              <span className="font-extrabold text-[#2CB1C9] select-none">{cotizacionPrefix}</span>
               <input 
                 type="text" 
                 value={cotizacionNumero}
                 onChange={(e) => {
                   setCotizacionNumero(e.target.value);
                 }}
-                className="w-20 text-xs theme-text font-extrabold font-sans placeholder-slate-400 border-b border-dashed theme-border focus:outline-none focus:border-solid bg-transparent px-1 py-0 text-center hover:bg-slate-200/60 rounded transition-colors print:border-none print:bg-transparent"
+                className="w-20 text-xs text-[#2CB1C9] font-extrabold font-sans placeholder-slate-400 border-b border-dashed border-[#2CB1C9] focus:outline-none focus:border-solid bg-transparent px-1 py-0 text-center hover:bg-slate-100 rounded transition-colors print:border-none print:bg-transparent"
                 title="Haz clic para modificar el número correlativo de la cotización"
                 placeholder="00001"
               />
@@ -2112,8 +2122,8 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
               <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                 INFORMACIÓN DEL CLIENTE
               </h2>
-              {!previewMode && (
-                <div className="flex flex-wrap items-center gap-1.5">
+              {!isDocumentClean && (
+                <div className="flex flex-wrap items-center gap-1.5 no-print no-pdf">
                   <button 
                     onClick={handleSaveContacto}
                     className="text-[10px] font-extrabold uppercase bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-2.5 py-1 rounded transition-all cursor-pointer shadow-sm"
@@ -2134,8 +2144,8 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
               )}
             </div>
 
-            {!previewMode && contactos.length > 0 && (
-              <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg text-xs space-y-1.5 animate-fade-in select-none">
+            {!isDocumentClean && contactos.length > 0 && (
+              <div className="no-print no-pdf bg-slate-50 border border-slate-200 p-3 rounded-lg text-xs space-y-1.5 animate-fade-in select-none">
                 <span className="font-extrabold text-[9px] uppercase tracking-wider text-slate-400 block mb-1">📋 Directorio de Clientes Guardados (Haz clic para cargar instantáneamente):</span>
                 <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
                   {contactos.map((cont, cIdx) => (
@@ -2157,7 +2167,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
               {/* Column 1 info inputs */}
               <div className="space-y-3 text-xs">
                 <div>
-                  {previewMode ? (
+                  {isDocumentClean ? (
                     <div className="py-2.5 px-1 border-b border-transparent text-[#0F1829]">
                       <p className="text-[10px] text-slate-400 font-bold uppercase select-none">Empresa / Razón Social</p>
                       <p className="font-semibold text-slate-800 select-all">{cliente.nombre || "-(Sin especificar)-"}</p>
@@ -2171,13 +2181,13 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                         const newCli = { ...cliente, nombre: e.target.value };
                         setCliente(newCli);
                       }}
-                      className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded focus:border-slate-500 focus:outline-none transition-all placeholder:text-slate-400 font-medium font-sans theme-outline"
+                      className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded focus:border-slate-550 focus:outline-none transition-all placeholder:text-slate-400 font-medium font-sans theme-outline"
                     />
                   )}
                 </div>
 
                 <div>
-                  {previewMode ? (
+                  {isDocumentClean ? (
                     <div className="py-2.5 print:py-0 px-1 border-b border-transparent text-[#0F1829]">
                       <p className="text-[10px] text-slate-400 font-bold uppercase select-none">RUC / DNI</p>
                       <p className="font-semibold text-slate-800 font-mono select-all">{cliente.ruc || "-(Sin especificar)-"}</p>
@@ -2191,7 +2201,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                         const newCli = { ...cliente, ruc: e.target.value };
                         setCliente(newCli);
                       }}
-                      className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded focus:border-slate-500 focus:outline-none transition-all placeholder:text-slate-400 font-medium theme-outline"
+                      className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded focus:border-slate-550 focus:outline-none transition-all placeholder:text-slate-400 font-medium theme-outline"
                     />
                   )}
                 </div>
@@ -2200,7 +2210,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
               {/* Column 2 info inputs */}
               <div className="space-y-3 text-xs print:space-y-1">
                 <div>
-                  {previewMode ? (
+                  {isDocumentClean ? (
                     <div className="py-2.5 print:py-0 px-1 border-b border-transparent text-[#0F1829]">
                       <p className="text-[10px] text-slate-400 font-bold uppercase select-none">Nombre de Contacto</p>
                       <p className="font-semibold text-slate-800 select-all">{cliente.contacto || "-(Sin especificar)-"}</p>
@@ -2214,13 +2224,13 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                         const newCli = { ...cliente, contacto: e.target.value };
                         setCliente(newCli);
                       }}
-                      className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded focus:border-slate-500 focus:outline-none transition-all placeholder:text-slate-400 font-medium theme-outline"
+                      className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded focus:border-slate-550 focus:outline-none transition-all placeholder:text-slate-400 font-medium theme-outline"
                     />
                   )}
                 </div>
 
                 <div>
-                  {previewMode ? (
+                  {isDocumentClean ? (
                     <div className="py-2.5 print:py-0 px-1 border-b border-transparent text-[#0F1829]">
                       <p className="text-[10px] text-slate-400 font-bold uppercase select-none">Teléfono / Celular</p>
                       <p className="font-semibold text-slate-800 select-all">{cliente.telefono || "-(Sin especificar)-"}</p>
@@ -2234,7 +2244,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                         const newCli = { ...cliente, telefono: e.target.value };
                         setCliente(newCli);
                       }}
-                      className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded focus:border-slate-500 focus:outline-none transition-all placeholder:text-slate-400 font-medium theme-outline"
+                      className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded focus:border-slate-550 focus:outline-none transition-all placeholder:text-slate-400 font-medium theme-outline"
                     />
                   )}
                 </div>
@@ -2249,7 +2259,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
               PROYECTO:
             </h2>
             <div>
-              {previewMode ? (
+              {isDocumentClean ? (
                 <p className="text-sm font-extrabold theme-text bg-slate-50 py-3 print:py-1 px-4 print:px-2 rounded-lg select-all inline-block uppercase leading-snug">
                   {proyecto || "-(Sujeto a Proyecto o Campaña Publicitaria)-"}
                 </p>
@@ -2273,8 +2283,8 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
               <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-l-4 theme-border-l pl-3.5 pl-3.5 pl-1.5 leading-none">
                 DETALLE DE SERVICIOS
               </h2>
-              {!previewMode && (
-                <div className="flex flex-wrap items-center gap-1 bg-slate-50 p-1 rounded-md border border-slate-200/50">
+              {!isDocumentClean && (
+                <div className="no-print no-pdf flex flex-wrap items-center gap-1 bg-slate-50 p-1 rounded-md border border-slate-200/50">
                   <span className="text-[9px] text-slate-400 font-extrabold uppercase mr-1 px-1">Rápidos:</span>
                   {POPULAR_CHIPS.map((chip) => (
                     <button
@@ -2300,7 +2310,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                     <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[12%] font-sans text-[10px] uppercase">Unidad</th>
                     <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[13%] text-right font-sans text-[10px] uppercase">P. Unit.</th>
                     <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[15%] text-right font-sans text-[10px] uppercase">Subtotal</th>
-                    {!previewMode && <th className="p-3 w-[12%]"></th>}
+                    {!isDocumentClean && <th className="p-3 w-[12%] no-print no-pdf"></th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -2320,7 +2330,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
  
                         {/* Product / service description */}
                         <td className="p-3 print:p-1.5">
-                          {item.confirmed || previewMode ? (
+                          {item.confirmed || isDocumentClean ? (
                             <span className="block text-slate-850 py-1 select-all font-medium whitespace-normal leading-relaxed text-[11.5px]">
                               {item.producto || "-(Concepto de servicio vacío)-"}
                             </span>
@@ -2345,7 +2355,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
  
                         {/* Quantity */}
                         <td className="p-3 print:p-1.5 text-center">
-                          {item.confirmed || previewMode ? (
+                          {item.confirmed || isDocumentClean ? (
                             <span className="font-semibold font-sans text-[11.5px]">{item.cantidad}</span>
                           ) : (
                             <input 
@@ -2360,7 +2370,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
  
                         {/* Unit */}
                         <td className="p-3 print:p-1.5">
-                          {item.confirmed || previewMode ? (
+                          {item.confirmed || isDocumentClean ? (
                             <span className="font-semibold text-slate-500 text-[11px]">{item.unidad}</span>
                           ) : (
                             <select 
@@ -2379,7 +2389,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
  
                         {/* Unit Price */}
                         <td className="p-3 print:p-1.5 text-right">
-                          {item.confirmed || previewMode ? (
+                          {item.confirmed || isDocumentClean ? (
                             <span className="font-semibold font-sans text-[11.5px]">{moneda} {(item.valorUnitario || 0).toFixed(2)}</span>
                           ) : (
                             <div className="flex items-center justify-end gap-1 font-sans text-slate-500">
@@ -2402,8 +2412,8 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                         </td>
  
                         {/* Edit icon controls */}
-                        {!previewMode && (
-                          <td className="p-1 px-2 text-center select-none">
+                        {!isDocumentClean && (
+                          <td className="no-print no-pdf p-1 px-2 text-center select-none">
                             <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity justify-end">
                               
                               {/* Move Row Up/Down action triggers */}
@@ -2471,8 +2481,8 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
             </div>
 
             {/* Inline add item helper buttons in edit profile */}
-            {!previewMode && (
-              <div className="flex justify-start">
+            {!isDocumentClean && (
+              <div className="no-print no-pdf flex justify-start">
                 <button
                   onClick={handleAddNewItemRow}
                   className="text-xs font-black theme-text flex items-center gap-1.5 border border-dashed border-slate-350 hover:border-slate-400 px-4 py-2.5 rounded-lg transition-all cursor-pointer bg-white shadow-sm"
@@ -2493,14 +2503,14 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                 <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                   CONDICIONES
                 </h2>
-                {!previewMode && observaciones.trim().length > 0 && (
+                {!isDocumentClean && observaciones.trim().length > 0 && (
                   <button
                     type="button"
                     onClick={() => {
                       setObservaciones("");
                       showNotification("Cajón de condiciones vaciado.", "info");
                     }}
-                    className="text-[10px] text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 py-0.5 rounded font-bold transition-all cursor-pointer flex items-center gap-1 border border-rose-200"
+                    className="no-print no-pdf text-[10px] text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2 py-0.5 rounded font-bold transition-all cursor-pointer flex items-center gap-1 border border-rose-200"
                     title="Vaciar cajón de texto de condiciones"
                   >
                     <Trash2 className="w-3 h-3" />
@@ -2509,8 +2519,8 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                 )}
               </div>
 
-              {previewMode ? (
-                <div className="text-[10px] text-slate-600 font-medium leading-relaxed bg-slate-50 p-3.5 print:p-2 rounded border border-slate-200/50 whitespace-pre-line select-text">
+              {isDocumentClean ? (
+                <div className="text-[10px] text-slate-700 font-medium leading-relaxed bg-slate-50/50 p-3.5 print:p-2 rounded border border-slate-200/50 whitespace-pre-line select-text">
                   {observaciones.trim() || "-(Sin condiciones particulares especificadas)-"}
                 </div>
               ) : (
@@ -2525,8 +2535,8 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                     className="w-full text-xs p-3 bg-white border border-slate-300 rounded focus:border-slate-550 focus:outline-none transition-all placeholder:text-slate-400 leading-relaxed font-sans font-medium"
                   />
                   
-                  {/* Packs Rápidos Coherentes (1 Clic) */}
-                  <div className="bg-slate-50 border border-slate-200/80 p-2.5 rounded-lg text-[10px] select-none space-y-2.5 shadow-2xs">
+                  {/* Packs Rápidos Coherentes (1 Clic) - Only shown in Editor Mode */}
+                  <div className="clause-builder no-print no-pdf bg-slate-50 border border-slate-200/80 p-2.5 rounded-lg text-[10px] select-none space-y-2.5 shadow-2xs">
                     <div className="flex items-center justify-between">
                       <span className="font-extrabold text-slate-600 uppercase text-[9.5px] tracking-wide flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-[#2CB1C9]" />
@@ -2641,19 +2651,19 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                   <div className="flex flex-col text-left">
                     <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center gap-1.5 label-chk">
                       <span>IGV ({taxRate}%)</span>
-                      {!previewMode && (
+                      {!isDocumentClean && (
                         <input 
                           type="checkbox" 
                           checked={igvActivo}
                           onChange={(e) => {
                             setIgvActivo(e.target.checked);
                           }}
-                          className="w-3.5 h-3.5 rounded border-slate-300 text-slate-700 accent-checkbox cursor-pointer"
+                          className="w-3.5 h-3.5 rounded border-slate-300 text-slate-700 accent-checkbox cursor-pointer no-print no-pdf"
                         />
                       )}
                     </span>
-                    {!previewMode && igvActivo && (
-                      <div className="flex items-center gap-1 mt-1 text-[10px] text-slate-500">
+                    {!isDocumentClean && igvActivo && (
+                      <div className="no-print no-pdf flex items-center gap-1 mt-1 text-[10px] text-slate-500">
                         <span>Tasa:</span>
                         <input
                           type="number"
@@ -2686,18 +2696,18 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
         </div>
         </div>
 
-        {/* PIE DE PÁGINA (RESTABLECIDO) - Dark footer with corporate accounts and handles */}
+        {/* PIE DE PÁGINA (Estilo limpio blanco con línea superior cyan de canto a canto) */}
         <div className="print-fixed-footer w-full">
-          <div className="bg-[#040D16] text-white p-6 sm:px-8 sm:py-5 print:px-8 print:py-4 flex flex-col sm:flex-row print:flex-row items-start sm:items-center print:items-center justify-between border-t-[3px] border-solid theme-border gap-4 select-none">
-            <div className="text-left sm:text-left print:text-left text-[10px] space-y-1 text-slate-300">
+          <div className="bg-white text-slate-700 p-6 sm:px-8 sm:py-5 print:px-8 print:py-4 flex flex-col sm:flex-row print:flex-row items-start sm:items-center print:items-center justify-between border-t-[3px] border-solid border-[#2CB1C9] gap-4 select-none">
+            <div className="text-left sm:text-left print:text-left text-[10.5px] space-y-1 text-slate-600 font-medium">
               {bancoSoles && <p><strong>BCP Soles:</strong> {bancoSoles} {cciSoles && <>| <strong>CCI:</strong> {cciSoles}</>}</p>}
               {bancoDolares && <p><strong>ScotiaBank Dólares:</strong> {bancoDolares} {cciDolares && <>| <strong>CCI:</strong> {cciDolares}</>}</p>}
               {detracciones && <p><strong>Detracciones BN:</strong> {detracciones}</p>}
             </div>
-            <div className="text-left sm:text-right print:text-right text-[10px] leading-tight text-slate-300 shrink-0">
-              <p className="font-extrabold text-white uppercase text-xs leading-none mb-1">OBED GUEVARA</p>
-              <p className="flex items-center sm:justify-end gap-1 theme-text font-bold"><i className='bx bxl-instagram text-xs' /> @one.estudiografico</p>
-              <p className="flex items-center sm:justify-end gap-1 text-slate-300 mt-0.5"><i className='bx bxl-whatsapp text-xs text-emerald-400' /> +51 991 820 589</p>
+            <div className="text-left sm:text-right print:text-right text-[10.5px] leading-tight text-slate-600 shrink-0">
+              <p className="font-extrabold text-slate-900 uppercase text-xs leading-none mb-1">OBED GUEVARA</p>
+              <p className="flex items-center sm:justify-end gap-1 text-[#2CB1C9] font-bold"><i className='bx bxl-instagram text-xs' /> @one.estudiografico</p>
+              <p className="flex items-center sm:justify-end gap-1 text-slate-600 mt-0.5"><i className='bx bxl-whatsapp text-xs text-emerald-500' /> +51 991 820 589</p>
             </div>
           </div>
         </div>

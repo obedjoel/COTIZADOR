@@ -7,6 +7,16 @@
 }
 
 /* Helper styles for PDF capture mode */
+.pdf-capture-mode {
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  margin: 0 !important;
+  background-color: #ffffff !important;
+}
+
 .pdf-capture-mode input,
 .pdf-capture-mode textarea,
 .pdf-capture-mode select {
@@ -18,6 +28,7 @@
 
 .pdf-capture-mode .no-pdf,
 .pdf-capture-mode .no-print,
+.pdf-capture-mode .clause-builder,
 .pdf-capture-mode button {
   display: none !important;
 }
@@ -26,7 +37,7 @@
 @media print {
   @page { 
     size: A4 portrait;   
-    margin: 8mm 6mm; 
+    margin: 0 !important; /* Canto a canto sin márgenes */
   }
 
   *, *::before, *::after {
@@ -51,6 +62,7 @@
   footer:not(.print-fixed-footer),
   .no-print,
   .print\\:hidden,
+  .clause-builder,
   button,
   [role="dialog"],
   .fixed,
