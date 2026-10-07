@@ -4,9 +4,10 @@ import {
   Loader2, Download, Eye, AlertCircle, CheckCircle, RefreshCw, X,
   Palette, Sliders, ChevronDown, ChevronUp, Copy, ArrowUp, ArrowDown, Camera,
   Database, Wifi, WifiOff, Cloud, Server, Globe, Settings, Upload, Sparkles, FileText, CheckSquare,
-  MessageCircle, Printer, Send, Mail, ExternalLink, Clock, Rocket, CheckCircle2
+  MessageCircle, Printer, Send, Mail, ExternalLink, Clock, Rocket, CheckCircle2,
+  Users, Search
 } from "lucide-react";
-import html2canvas from "html2canvas";
+import html2canvas from "html2canvas-pro";
 import jsPDF from "jspdf";
 import { Cotizacion, CotizacionItem, ClientData } from "./types";
 import logoOne from "./logoONEtransparente.png";
@@ -75,34 +76,6 @@ const POPULAR_CHIPS = [
   { label: "+ 📁 Folders", desc: "Folders institucionales en cartulina Foldcote C16 tintero, troquelado especial y plastificado mate", price: 0, unit: "Ciento" },
   { label: "+ 🪧 Afiches", desc: "Afiches A3 impresión láser full color en papel couché de 150gr", price: 0, unit: "Ciento" },
   { label: "+ 🖼️ Banners", desc: "Banner publicitario impreso en lona de 13oz con ollaos esquineros para colgar", price: 0, unit: "Unidad" }
-];
-
-// PLANTILLAS RÁPIDAS COHERENTES ENTRE SÍ (Packs integrales de 1 clic)
-export const CONDICIONES_PACKS = [
-  {
-    id: "estandar",
-    label: "🌟 Pack Estándar Imprenta",
-    desc: "50% adelanto, 3-5 días entrega, 15 días validez",
-    text: "• Forma de pago: 50% de adelanto para inicio y 50% contra entrega conforme.\n• Tiempo de entrega: 3 a 5 días hábiles tras aprobación del arte final.\n• Validez de la cotización: 15 días calendario.\n• Todo trabajo inicia tras visto bueno digital del diseño."
-  },
-  {
-    id: "express",
-    label: "⚡ Pack Express (Urgente)",
-    desc: "100% adelanto, entrega rápida 24-48 hrs",
-    text: "• Forma de pago: 100% al contado por adelantado para activación inmediata.\n• Tiempo de entrega: 24 a 48 horas hábiles tras aprobación del diseño.\n• Validez de la cotización: 5 días calendario.\n• Trabajo sujeto a confirmación inmediata del archivo digital listo para impresión."
-  },
-  {
-    id: "diseno",
-    label: "🎨 Pack Diseño Gráfico",
-    desc: "Propuestas, 2 rondas de ajustes, entregables vectoriales",
-    text: "• Forma de pago: 50% de adelanto para desarrollo de propuestas y 50% contra entrega de archivos finales.\n• Tiempo de entrega: 3 a 4 días hábiles para presentación de primera ronda de propuestas.\n• Incluye hasta 2 rondas de correcciones o ajustes sobre la propuesta seleccionada.\n• Entrega de archivos vectoriales editables (AI, PDF) y exportaciones para redes (PNG, JPG)."
-  },
-  {
-    id: "credito",
-    label: "🏢 Pack Corporativo (Crédito)",
-    desc: "Crédito 15 días con O/C, entrega 5-7 días",
-    text: "• Forma de pago: Crédito comercial a 15 días calendario previa orden de compra aprobada.\n• Tiempo de entrega: 5 a 7 días hábiles según volumen de producción.\n• Validez de la cotización: 30 días calendario.\n• Precios válidos para emisión de factura electrónica oficial."
-  }
 ];
 
 // CLÁUSULAS POR CATEGORÍA CON LÓGICA DE REEMPLAZO INTELIGENTE (Sin contradicciones internas)
@@ -245,9 +218,7 @@ export default function App() {
   const [proyecto, setProyecto] = useState<string>("");
   
   // Table items state
-  const [items, setItems] = useState<CotizacionItem[]>([
-    { id: "1", producto: "", cantidad: 1, unidad: "Millar", valorUnitario: 0, confirmed: false }
-  ]);
+  const [items, setItems] = useState<CotizacionItem[]>([]);
 
   const [observaciones, setObservaciones] = useState<string>("");
   const [igvActivo, setIgvActivo] = useState<boolean>(true);
@@ -269,7 +240,7 @@ export default function App() {
   const [detracciones, setDetracciones] = useState<string>("00101821358");
 
   // Emisor & Brand details (with custom profile autosave support)
-  const [brandName, setBrandName] = useState<string>("ONE ESPACIO CREATIVO");
+  const [brandName, setBrandName] = useState<string>("ONE ESTUDIO GRÁFICO");
   const [brandSubtitle, setBrandSubtitle] = useState<string>("ESTUDIO GRÁFICO");
   const [emisorNombre, setEmisorNombre] = useState<string>("OBED GUEVARA");
   const [emisorRuc, setEmisorRuc] = useState<string>("10417585350");
@@ -278,14 +249,38 @@ export default function App() {
   const [emisorDireccion, setEmisorDireccion] = useState<string>("Leoncio Prado V7, Paucarpata");
   const [taxRate, setTaxRate] = useState<number>(18);
   const [contactos, setContactos] = useState<ClientData[]>([]);
+  const [directoryModalOpen, setDirectoryModalOpen] = useState<boolean>(false);
+  const [directorySearch, setDirectorySearch] = useState<string>("");
+  const [newDirectorioFormOpen, setNewDirectorioFormOpen] = useState<boolean>(false);
+  const [newDirectorioCliente, setNewDirectorioCliente] = useState<ClientData>({
+    nombre: "",
+    ruc: "",
+    contacto: "",
+    telefono: ""
+  });
   
+  // SUNAT-Style Pop-up Modal State for Items
+  const [itemModalOpen, setItemModalOpen] = useState<boolean>(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [modalItemData, setModalItemData] = useState<{
+    producto: string;
+    cantidad: number;
+    unidad: string;
+    valorUnitario: number;
+  }>({
+    producto: "",
+    cantidad: 1,
+    unidad: "Unidad",
+    valorUnitario: 0
+  });
+
   // Advanced toggles
   const [showBankSettings, setShowBankSettings] = useState<boolean>(false);
 
   // 1. CIERRE DE VENTAS Y COMUNICACIÓN RÁPIDA (Modal, plantillas y pipeline de ventas)
   const [salesModalOpen, setSalesModalOpen] = useState<boolean>(false);
   const [salesTargetQuote, setSalesTargetQuote] = useState<Cotizacion | null>(null);
-  const [salesTemplate, setSalesTemplate] = useState<"formal" | "seguimiento" | "aprobacion" | "vencimiento">("formal");
+  const [salesTemplate, setSalesTemplate] = useState<"formal" | "aprobacion" | "vencimiento">("formal");
   const [salesCustomPhone, setSalesCustomPhone] = useState<string>("");
   const [salesCustomMessage, setSalesCustomMessage] = useState<string>("");
   const [currentQuoteStatus, setCurrentQuoteStatus] = useState<"pendiente" | "aprobada" | "rechazada">("pendiente");
@@ -390,7 +385,8 @@ export default function App() {
         }
         if (parsed.igvActivo !== undefined) setIgvActivo(parsed.igvActivo);
         if (parsed.items && parsed.items.length) {
-          setItems(parsed.items);
+          const cleanLoadedItems = parsed.items.filter((it: CotizacionItem) => it.producto && it.producto.trim() !== "");
+          setItems(cleanLoadedItems);
         }
         
         // Advanced Customizer load configs
@@ -404,7 +400,7 @@ export default function App() {
         if (parsed.detracciones) setDetracciones(parsed.detracciones);
 
         // Customizable brand, emisor profile and taxes load configs
-        if (parsed.brandName) setBrandName(parsed.brandName);
+        if (parsed.brandName) setBrandName(parsed.brandName === "ONE ESPACIO CREATIVO" ? "ONE ESTUDIO GRÁFICO" : parsed.brandName);
         if (parsed.brandSubtitle) setBrandSubtitle(parsed.brandSubtitle);
         if (parsed.emisorNombre) setEmisorNombre(parsed.emisorNombre);
         if (parsed.emisorRuc) setEmisorRuc(parsed.emisorRuc);
@@ -420,15 +416,27 @@ export default function App() {
       setCotizacionNumero(getNextSuggestedInvoiceNumber(activePrefix, offlineHist));
     }
 
-    // Load saved client contacts directory
+    // Load saved client contacts directory and auto-merge any clients from offlineHist
+    let loadedContactos: ClientData[] = [];
     const storedContactos = localStorage.getItem("one_estudio_contactos");
     if (storedContactos) {
       try {
-        setContactos(JSON.parse(storedContactos));
+        loadedContactos = JSON.parse(storedContactos);
       } catch (e) {
         console.error("Error loading contacts directory", e);
       }
     }
+    if (offlineHist && Array.isArray(offlineHist)) {
+      offlineHist.forEach((q: Cotizacion) => {
+        if (q.cliente && q.cliente.nombre && q.cliente.nombre.trim()) {
+          const exists = loadedContactos.some(c => c.nombre.toLowerCase().trim() === q.cliente.nombre.toLowerCase().trim());
+          if (!exists) {
+            loadedContactos.push(q.cliente);
+          }
+        }
+      });
+    }
+    setContactos(loadedContactos);
 
     // Load custom database settings and selection
     const savedDbSource = localStorage.getItem("one_db_source");
@@ -865,7 +873,7 @@ export default function App() {
 
     const backupData = {
       version: "2.0",
-      app: "ONE Espacio Creativo - Cotizador",
+      app: "ONE estudio gráfico - Cotizador",
       exportDate: new Date().toISOString(),
       cotizaciones: historyList.length ? historyList : localHist,
       contactos: storedContactos,
@@ -987,7 +995,7 @@ export default function App() {
     setDetracciones(selected.detracciones || "00101821358");
 
     // Load customizable brand and emisor details
-    setBrandName(selected.brandName || "ONE ESPACIO CREATIVO");
+    setBrandName(selected.brandName && selected.brandName !== "ONE ESPACIO CREATIVO" ? selected.brandName : "ONE ESTUDIO GRÁFICO");
     setBrandSubtitle(selected.brandSubtitle || "ESTUDIO GRÁFICO");
     setEmisorNombre(selected.emisorNombre || "OBED GUEVARA");
     setEmisorRuc(selected.emisorRuc || "10417585350");
@@ -1067,9 +1075,7 @@ export default function App() {
         const offlineHist = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
         const resetNumero = getNextSuggestedInvoiceNumber(cotizacionPrefix, offlineHist);
         const resetObs = "";
-        const resetItems: CotizacionItem[] = [
-          { id: "1", producto: "", cantidad: 1, unidad: "Millar", valorUnitario: 0, confirmed: false }
-        ];
+        const resetItems: CotizacionItem[] = [];
 
         setCliente(resetCliente);
         setProyecto(resetProyecto);
@@ -1091,7 +1097,7 @@ export default function App() {
         setShowBankSettings(false);
 
         // Reset brand details
-        setBrandName("ONE ESPACIO CREATIVO");
+        setBrandName("ONE ESTUDIO GRÁFICO");
         setBrandSubtitle("ESTUDIO GRÁFICO");
         setEmisorNombre("OBED GUEVARA");
         setEmisorRuc("10417585350");
@@ -1117,17 +1123,18 @@ export default function App() {
   };
 
   // Descarga directa de archivo PDF con la nomenclatura requerida: ONE COTIZACIÓN 2026-10-XXXXX.pdf
-  const handleDownloadDirectPDF = async (targetQuote?: Cotizacion | null) => {
+  const handleDownloadDirectPDF = async (targetQuote?: Cotizacion | null): Promise<boolean> => {
     // Si se pasa una cotización del historial que no está en el lienzo activo, se carga primero
     if (targetQuote && targetQuote.id !== `${cotizacionPrefix}${cotizacionNumero}`) {
       handleCargarQuote(targetQuote);
       await new Promise(resolve => setTimeout(resolve, 350));
     }
 
-    const validItems = items.filter(i => i.producto.trim() !== "");
-    if (!validItems.length && !targetQuote) {
+    const activeItems = targetQuote ? (targetQuote.items || []) : items;
+    const validItems = activeItems.filter(i => i.producto && i.producto.trim() !== "");
+    if (!validItems.length) {
       showNotification("Debe tener al menos un ítem con descripción para poder generar la cotización.", "info");
-      return;
+      return false;
     }
 
     setLoading(true);
@@ -1156,6 +1163,8 @@ export default function App() {
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
+        scrollX: 0,
+        scrollY: 0,
         windowWidth: 920,
         ignoreElements: (element) => {
           return element.classList.contains("no-print") || 
@@ -1197,12 +1206,31 @@ export default function App() {
         }
       }
 
-      pdf.save(pdfFilename);
+      // Descarga directa por Blob para máxima compatibilidad con el navegador y entornos iframe
+      try {
+        const pdfBlob = pdf.output("blob");
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        const downloadLink = document.createElement("a");
+        downloadLink.href = pdfUrl;
+        downloadLink.download = pdfFilename;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        setTimeout(() => {
+          document.body.removeChild(downloadLink);
+          URL.revokeObjectURL(pdfUrl);
+        }, 3000);
+      } catch (blobErr) {
+        console.warn("Fallback to pdf.save:", blobErr);
+        pdf.save(pdfFilename);
+      }
+
       showNotification(`¡Archivo "${pdfFilename}" descargado exitosamente!`, "success");
+      return true;
     } catch (err) {
       console.error("Error al generar PDF:", err);
       showNotification("Abriendo vista para impresión de alta calidad...", "info");
       window.print();
+      return false;
     } finally {
       document.title = previousDocTitle;
       const docElement = document.getElementById("main-cotizador-sheet");
@@ -1299,7 +1327,7 @@ export default function App() {
 
   // 1. CIERRE DE VENTAS Y COMUNICACIÓN RÁPIDA: Generador dinámico de mensajes por etapas comerciales
   const generateSalesMessage = (
-    templateType: "formal" | "seguimiento" | "aprobacion" | "vencimiento",
+    templateType: "formal" | "aprobacion" | "vencimiento",
     targetQuote?: Cotizacion | null
   ) => {
     const qItems = targetQuote ? (targetQuote.items || []) : items;
@@ -1337,7 +1365,7 @@ export default function App() {
 
     if (templateType === "formal") {
       return `Hola ${clientGreeting} 👋
-Te saluda Obed Guevara de *ONE Espacio Creativo* (Estudio Gráfico & Publicitario).
+Te saluda Obed Guevara de *ONE estudio gráfico* (Estudio Gráfico & Publicitario).
 
 📄 *COTIZACIÓN FORMAL:*
 *${fullNomenclature}*
@@ -1357,19 +1385,6 @@ ${qObs.trim() ? `\n📌 *Condiciones:* \n${qObs.trim()}\n` : ""}
 Quedo atento a tus comentarios o visto bueno para iniciar la producción de inmediato. ¡Muchas gracias por tu preferencia! ✨`;
     }
 
-    if (templateType === "seguimiento") {
-      return `Hola ${clientSimpleName} 👋 ¿Cómo estás?
-Te saluda nuevamente Obed Guevara de *ONE Espacio Creativo*.
-
-Quería consultarte si pudiste revisar la propuesta formal que te enviamos:
-📄 *${fullNomenclature}*
-${qProyecto ? `💼 *Proyecto:* ${qProyecto}\n` : ""}💰 *Monto Total:* *${qMoneda} ${qTotal.toFixed(2)}* ${qIgv ? "(Inc. IGV)" : ""}
-
-Tenemos cupos y disponibilidad programada en taller para iniciar la producción esta semana. ¿Tienes alguna consulta sobre los acabados o deseas que afinemos algún detalle del diseño para dar inicio?
-
-Quedo a tu total disposición para ayudarte a cerrar tu pedido hoy mismo. ¡Un abrazo! 🙌`;
-    }
-
     if (templateType === "aprobacion") {
       return `¡Excelente ${clientSimpleName}! 🎉
 Confirmamos con mucho gusto la recepción de tu visto bueno para la cotización:
@@ -1381,12 +1396,12 @@ Para activar la orden de trabajo en taller de inmediato:
 ${bankDetails}
 2️⃣ Envíanos la captura o constancia del depósito por este medio.
 
-¡Inmediatamente preparamos el arte final para tu confirmación! Muchas gracias por confiar en ONE Espacio Creativo 🚀`;
+¡Inmediatamente preparamos el arte final para tu confirmación! Muchas gracias por confiar en ONE estudio gráfico 🚀`;
     }
 
     if (templateType === "vencimiento") {
       return `Hola ${clientSimpleName} 👋
-Te saluda Obed de *ONE Espacio Creativo*.
+Te saluda Obed de *ONE estudio gráfico*.
 
 Te escribimos para recordarte que la cotización *${fullNomenclature}* por *${qMoneda} ${qTotal.toFixed(2)}* está próxima a cumplir su periodo de validez.
 
@@ -1412,7 +1427,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
     setSalesModalOpen(true);
   };
 
-  const handleSelectSalesTemplate = (tmpl: "formal" | "seguimiento" | "aprobacion" | "vencimiento") => {
+  const handleSelectSalesTemplate = (tmpl: "formal" | "aprobacion" | "vencimiento") => {
     setSalesTemplate(tmpl);
     setSalesCustomMessage(generateSalesMessage(tmpl, salesTargetQuote));
   };
@@ -1450,13 +1465,15 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
     const pdfFilename = `${fullNomenclature}.pdf`;
 
     // 1. Descargar el archivo PDF con la nomenclatura requerida
-    await handleDownloadDirectPDF(targetQuote);
+    const success = await handleDownloadDirectPDF(targetQuote);
+    if (!success) {
+      return;
+    }
 
     // 2. Abrir WhatsApp y copiar texto
     setTimeout(() => {
       handleExecuteSendWhatsApp(targetQuote, customMsg, customPhone);
-      showNotification(`¡PDF "${pdfFilename}" descargado y WhatsApp abierto! Adjunta el archivo en el chat del cliente.`, "success");
-    }, 600);
+    }, 450);
   };
 
   // 1. CIERRE DE VENTAS: Envío por correo electrónico
@@ -1465,7 +1482,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
     const qPrefix = targetQuote ? targetQuote.prefix : cotizacionPrefix;
     const fullNomenclature = getFullQuotationFilename(qPrefix, qNum);
 
-    const subject = encodeURIComponent(`Cotización: ${fullNomenclature} - ONE Espacio Creativo`);
+    const subject = encodeURIComponent(`Cotización: ${fullNomenclature} - ONE estudio gráfico`);
     const body = encodeURIComponent(customMsg || salesCustomMessage || generateSalesMessage("formal", targetQuote));
     
     const mailtoUrl = `mailto:?subject=${subject}&body=${body}`;
@@ -1553,71 +1570,94 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
     updateItemsAndAutosave(updated);
   };
 
-  const handleAddNewItemRow = () => {
-    const nextId = String(Date.now());
-    const updated = [
-      ...items,
-      { id: nextId, producto: "", cantidad: 1, unidad: "Unidad", valorUnitario: 0, confirmed: false }
-    ];
-    updateItemsAndAutosave(updated);
+  // SUNAT-Style Modal Handlers for Items
+  const handleOpenAddItemModal = (initialData?: Partial<CotizacionItem>) => {
+    setEditingItemId(null);
+    setModalItemData({
+      producto: initialData?.producto || "",
+      cantidad: initialData?.cantidad !== undefined ? initialData.cantidad : 1,
+      unidad: initialData?.unidad || "Unidad",
+      valorUnitario: initialData?.valorUnitario !== undefined ? initialData.valorUnitario : 0
+    });
+    setItemModalOpen(true);
   };
 
-  const handleConfirmItem = (itemId: string) => {
-    const item = items.find(i => i.id === itemId);
-    if (!item || !item.producto.trim()) {
-      showNotification("Por favor, ingrese un producto o servicio válido.", "info");
+  const handleOpenEditItemModal = (item: CotizacionItem) => {
+    setEditingItemId(item.id);
+    setModalItemData({
+      producto: item.producto || "",
+      cantidad: item.cantidad !== undefined ? item.cantidad : 1,
+      unidad: item.unidad || "Unidad",
+      valorUnitario: item.valorUnitario !== undefined ? item.valorUnitario : 0
+    });
+    setItemModalOpen(true);
+  };
+
+  const handleSaveItemModal = () => {
+    const desc = modalItemData.producto.trim();
+    if (!desc) {
+      showNotification("Por favor, ingrese la descripción del producto o servicio.", "info");
       return;
     }
+    const cant = Number(modalItemData.cantidad) > 0 ? Number(modalItemData.cantidad) : 1;
+    const precio = Number(modalItemData.valorUnitario) >= 0 ? Number(modalItemData.valorUnitario) : 0;
+    const unid = modalItemData.unidad || "Unidad";
 
-    const updated = items.map(i => {
-      if (i.id === itemId) return { ...i, confirmed: true };
-      return i;
-    });
-    updateItemsAndAutosave(updated);
-    
-    // Automatically append a new blank row if there isn't one already open
-    const hasUnconfirmed = updated.some(i => !i.confirmed);
-    if (!hasUnconfirmed) {
-      const nextId = String(Date.now() + 1);
-      const withNewRow = [
-        ...updated,
-        { id: nextId, producto: "", cantidad: 1, unidad: "Unidad", valorUnitario: 0, confirmed: false }
-      ];
-      updateItemsAndAutosave(withNewRow);
+    if (editingItemId) {
+      // Modifying existing item
+      const updated = items.map(it => {
+        if (it.id === editingItemId) {
+          return {
+            ...it,
+            producto: desc,
+            cantidad: cant,
+            unidad: unid,
+            valorUnitario: precio,
+            confirmed: true
+          };
+        }
+        return it;
+      });
+      updateItemsAndAutosave(updated);
+      showNotification("Ítem actualizado correctamente.", "success");
+    } else {
+      // Adding new item
+      const nextId = String(Date.now());
+      const newItem: CotizacionItem = {
+        id: nextId,
+        producto: desc,
+        cantidad: cant,
+        unidad: unid,
+        valorUnitario: precio,
+        confirmed: true
+      };
+      const cleanCurrent = items.filter(it => it.producto && it.producto.trim() !== "");
+      const updated = [...cleanCurrent, newItem];
+      updateItemsAndAutosave(updated);
+      showNotification("Ítem adicionado a la cotización.", "success");
     }
-  };
-
-  const handleEditItem = (itemId: string) => {
-    const updated = items.map(i => {
-      if (i.id === itemId) return { ...i, confirmed: false };
-      return i;
-    });
-    updateItemsAndAutosave(updated);
+    setItemModalOpen(false);
   };
 
   const handleRemoveItem = (itemId: string) => {
-    let updated = items.filter(i => i.id !== itemId);
-    if (updated.length === 0) {
-      updated = [{ id: String(Date.now()), producto: "", cantidad: 1, unidad: "Unidad", valorUnitario: 0, confirmed: false }];
-    }
+    const updated = items.filter(i => i.id !== itemId);
     updateItemsAndAutosave(updated);
+    showNotification("Ítem eliminado.", "info");
   };
-
-
 
   const handleDuplicateItem = (itemId: string) => {
     const index = items.findIndex(i => i.id === itemId);
     if (index > -1) {
       const itemToDup = items[index];
-      const newItem = {
+      const newItem: CotizacionItem = {
         ...itemToDup,
         id: String(Date.now() + Math.random()),
-        confirmed: false
+        confirmed: true
       };
       const updated = [...items];
       updated.splice(index + 1, 0, newItem);
       updateItemsAndAutosave(updated);
-      showNotification("Concepto duplicado, listo para editar.", "success");
+      showNotification("Ítem duplicado con éxito.", "success");
     }
   };
 
@@ -1633,50 +1673,12 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
   };
 
   const handleQuickAddChip = (chip: typeof POPULAR_CHIPS[0]) => {
-    const nextId = String(Date.now());
-    const lastItem = items[items.length - 1];
-    let updated;
-    if (lastItem && lastItem.producto.trim() === "" && lastItem.valorUnitario === 0) {
-      updated = items.map((it, idx) => {
-        if (idx === items.length - 1) {
-          return {
-            ...it,
-            producto: chip.desc,
-            valorUnitario: chip.price,
-            unidad: chip.unit,
-            confirmed: true
-          };
-        }
-        return it;
-      });
-    } else {
-      updated = [
-        ...items,
-        {
-          id: nextId,
-          producto: chip.desc,
-          cantidad: 1,
-          unidad: chip.unit,
-          valorUnitario: chip.price,
-          confirmed: true
-        }
-      ];
-    }
-
-    const hasUnconfirmed = updated.some(i => !i.confirmed);
-    if (!hasUnconfirmed) {
-      updated.push({
-        id: String(Date.now() + 1),
-        producto: "",
-        cantidad: 1,
-        unidad: "Unidad",
-        valorUnitario: 0,
-        confirmed: false
-      });
-    }
-
-    updateItemsAndAutosave(updated);
-    showNotification(`Añadido: ${chip.desc.slice(0, 30)}...`, "success");
+    handleOpenAddItemModal({
+      producto: chip.desc,
+      unidad: chip.unit,
+      valorUnitario: chip.price,
+      cantidad: 1
+    });
   };
 
   const handleSaveContacto = () => {
@@ -1694,7 +1696,84 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
     }
     setContactos(updated);
     localStorage.setItem("one_estudio_contactos", JSON.stringify(updated));
+
+    // Also sync to cloud firestore if available
+    try {
+      const db = getActiveFirebaseDb();
+      if (db) {
+        const cleanDocId = cliente.nombre.toLowerCase().replace(/[^a-z0-9_-]/g, "_").slice(0, 60) || `cli_${Date.now()}`;
+        setDoc(doc(db, "directorio_clientes", cleanDocId), cliente, { merge: true }).catch(() => {});
+      }
+    } catch (_) {}
+
     showNotification(`Cliente "${cliente.nombre}" guardado con éxito en el directorio.`, "success");
+  };
+
+  const handleAddNewDirectorioCliente = (loadIntoQuote: boolean = false) => {
+    if (!newDirectorioCliente.nombre.trim()) {
+      showNotification("Ingrese la Empresa / Razón Social para guardarlo.", "error");
+      return;
+    }
+    const existsIndex = contactos.findIndex(c => c.nombre.toLowerCase().trim() === newDirectorioCliente.nombre.toLowerCase().trim());
+    let updated;
+    if (existsIndex > -1) {
+      updated = [...contactos];
+      updated[existsIndex] = newDirectorioCliente;
+    } else {
+      updated = [newDirectorioCliente, ...contactos];
+    }
+    setContactos(updated);
+    localStorage.setItem("one_estudio_contactos", JSON.stringify(updated));
+
+    try {
+      const db = getActiveFirebaseDb();
+      if (db) {
+        const cleanDocId = newDirectorioCliente.nombre.toLowerCase().replace(/[^a-z0-9_-]/g, "_").slice(0, 60) || `cli_${Date.now()}`;
+        setDoc(doc(db, "directorio_clientes", cleanDocId), newDirectorioCliente, { merge: true }).catch(() => {});
+      }
+    } catch (_) {}
+
+    showNotification(`Cliente "${newDirectorioCliente.nombre}" guardado en el directorio.`, "success");
+
+    if (loadIntoQuote) {
+      setCliente(newDirectorioCliente);
+      setDirectoryModalOpen(false);
+      showNotification(`Cliente "${newDirectorioCliente.nombre}" cargado en la cotización.`, "success");
+    }
+    setNewDirectorioCliente({ nombre: "", ruc: "", contacto: "", telefono: "" });
+    setNewDirectorioFormOpen(false);
+  };
+
+  const handleLoadSampleContactos = () => {
+    const samples: ClientData[] = [
+      {
+        nombre: "INVERSIONES Y SERVICIOS GRAFICOS S.A.C.",
+        ruc: "20601234567",
+        contacto: "Lic. Carlos Mendoza",
+        telefono: "+51 984 123 456"
+      },
+      {
+        nombre: "CONSTRUCTORA & INMOBILIARIA DEL SUR",
+        ruc: "20459871234",
+        contacto: "Arq. Patricia Delgado",
+        telefono: "+51 958 654 321"
+      },
+      {
+        nombre: "RESTAURANTE Y EVENTOS MISTURA S.R.L.",
+        ruc: "20123498765",
+        contacto: "Renato Flores",
+        telefono: "+51 997 789 123"
+      }
+    ];
+    const merged = [...contactos];
+    samples.forEach(s => {
+      if (!merged.some(c => c.nombre.toLowerCase().trim() === s.nombre.toLowerCase().trim())) {
+        merged.push(s);
+      }
+    });
+    setContactos(merged);
+    localStorage.setItem("one_estudio_contactos", JSON.stringify(merged));
+    showNotification("Clientes de ejemplo añadidos al directorio.", "success");
   };
 
   const handleClearContactos = () => {
@@ -1711,9 +1790,33 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
     });
   };
 
+  const handleSelectContacto = (cont: ClientData) => {
+    setCliente(cont);
+    setDirectoryModalOpen(false);
+    showNotification(`Cliente "${cont.nombre}" cargado exitosamente en la cotización.`, "success");
+  };
+
+  const handleDeleteSingleContacto = (contNombre: string) => {
+    const filtered = contactos.filter(c => c.nombre !== contNombre);
+    setContactos(filtered);
+    localStorage.setItem("one_estudio_contactos", JSON.stringify(filtered));
+    showNotification(`Cliente "${contNombre}" eliminado del directorio.`, "info");
+  };
+
+  const filteredContactos = contactos.filter(c => {
+    if (!directorySearch.trim()) return true;
+    const term = directorySearch.toLowerCase().trim();
+    return (
+      (c.nombre && c.nombre.toLowerCase().includes(term)) ||
+      (c.ruc && c.ruc.toLowerCase().includes(term)) ||
+      (c.contacto && c.contacto.toLowerCase().includes(term)) ||
+      (c.telefono && c.telefono.toLowerCase().includes(term))
+    );
+  });
+
   // Re-organize layout numbering safely inside render views
   const confirmedOrNotEmptyItems = items.filter(item => 
-    !isDocumentClean || item.producto.trim() !== ""
+    item.producto && item.producto.trim() !== ""
   );
 
   return (
@@ -2076,7 +2179,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
         <div className="print-fixed-header w-full">
           <div className="bg-white text-slate-800 p-6 sm:px-8 sm:py-5 print:px-8 print:py-4 flex flex-col sm:flex-row print:flex-row items-start sm:items-center print:items-center justify-between border-b-[3px] border-solid border-[#2CB1C9]">
             <div className="flex flex-col mb-4 sm:mb-0 print:mb-0">
-              <img src={logoOne} alt="ONE Espacio Creativo Logo" className="h-16 print:h-14 w-auto max-w-[240px] object-contain" />
+              <img src={logoOne} alt="ONE estudio gráfico Logo" className="h-16 print:h-14 w-auto max-w-[240px] object-contain" />
             </div>
 
             <div className="text-left sm:text-right print:text-right text-xs space-y-0.5 text-slate-600">
@@ -2119,46 +2222,90 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
           {/* DATOS CLIENTE */}
           <div className="space-y-3">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-l-4 theme-border-l pl-3.5 select-none">
-              <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                INFORMACIÓN DEL CLIENTE
+              <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <span>INFORMACIÓN DEL CLIENTE</span>
               </h2>
               {!isDocumentClean && (
                 <div className="flex flex-wrap items-center gap-1.5 no-print no-pdf">
                   <button 
+                    type="button"
                     onClick={handleSaveContacto}
-                    className="text-[10px] font-extrabold uppercase bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-2.5 py-1 rounded transition-all cursor-pointer shadow-sm"
-                    title="Almacenar este contacto en el directorio local de clientes"
+                    className="text-[10px] font-black uppercase bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-md transition-all cursor-pointer shadow-sm flex items-center gap-1.5 active:scale-95"
+                    title="Almacenar este contacto en el directorio de clientes para usarlo en futuras cotizaciones"
                   >
-                    💾 Guardar en Directorio
+                    <span>💾 GUARDAR EN DIRECTORIO</span>
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setDirectorySearch("");
+                      setNewDirectorioFormOpen(false);
+                      setDirectoryModalOpen(true);
+                    }}
+                    className="text-[10px] font-black uppercase bg-[#040D16] hover:bg-slate-850 text-[#2CB1C9] border-2 border-[#2CB1C9] px-3 py-1.5 rounded-md transition-all cursor-pointer shadow-sm flex items-center gap-1.5 active:scale-95 ring-1 ring-[#2CB1C9]/30"
+                    title="Abrir directorio para elegir un cliente y cargar sus datos en 1 clic"
+                  >
+                    <Users className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>MOSTRAR DIRECTORIO</span>
+                    <span className="bg-[#2CB1C9] text-[#040D16] text-[9.5px] font-black px-1.5 py-0.2 rounded-full leading-tight">
+                      {contactos.length}
+                    </span>
                   </button>
                   {contactos.length > 0 && (
                     <button
+                      type="button"
                       onClick={handleClearContactos}
-                      className="text-[10px] font-extrabold uppercase bg-rose-50 hover:bg-rose-100 text-rose-700 px-2 py-1 rounded transition-all cursor-pointer"
+                      className="text-[10px] font-extrabold uppercase bg-rose-50 hover:bg-rose-100 text-rose-700 px-2 py-1.5 rounded-md transition-all cursor-pointer"
                       title="Borrar directorio guardado localmente"
                     >
-                      🗑️ Vaciar Directorio
+                      🗑️ Vaciar
                     </button>
                   )}
                 </div>
               )}
             </div>
 
-            {!isDocumentClean && contactos.length > 0 && (
-              <div className="no-print no-pdf bg-slate-50 border border-slate-200 p-3 rounded-lg text-xs space-y-1.5 animate-fade-in select-none">
-                <span className="font-extrabold text-[9px] uppercase tracking-wider text-slate-400 block mb-1">📋 Directorio de Clientes Guardados (Haz clic para cargar instantáneamente):</span>
-                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                  {contactos.map((cont, cIdx) => (
-                    <button
-                      key={cIdx}
-                      onClick={() => setCliente(cont)}
-                      className="bg-white hover:bg-slate-100 text-[#0F1829] border border-slate-200 hover:border-slate-300 font-extrabold text-[10.5px] px-2.5 py-1 rounded-md transition-all shadow-sm cursor-pointer flex items-center gap-1"
+            {!isDocumentClean && (
+              <div className="no-print no-pdf flex flex-wrap items-center justify-between gap-2.5 bg-slate-50 border border-slate-200 p-2.5 rounded-lg text-xs animate-fade-in select-none">
+                <div className="flex items-center gap-2 flex-1 min-w-[260px]">
+                  <Users className="w-4 h-4 text-[#2CB1C9] shrink-0" />
+                  <span className="font-extrabold text-[10px] uppercase tracking-wider text-slate-700 whitespace-nowrap">
+                    Elegir del Directorio:
+                  </span>
+                  {contactos.length > 0 ? (
+                    <select
+                      className="bg-white border border-slate-300 rounded-md px-2.5 py-1.5 text-xs text-slate-800 font-semibold focus:outline-none focus:border-[#2CB1C9] max-w-sm cursor-pointer shadow-xs transition-colors"
+                      value=""
+                      onChange={(e) => {
+                        const selected = contactos.find(c => c.nombre === e.target.value);
+                        if (selected) handleSelectContacto(selected);
+                      }}
                     >
-                      <span>🏢 {cont.nombre}</span>
-                      {cont.contacto && <span className="text-slate-400 font-normal">({cont.contacto})</span>}
-                    </button>
-                  ))}
+                      <option value="">-- Cargar cliente guardado ({contactos.length} disponibles) --</option>
+                      {contactos.map((cont, cIdx) => (
+                        <option key={cIdx} value={cont.nombre}>
+                          🏢 {cont.nombre} {cont.ruc ? `[RUC: ${cont.ruc}]` : ""} {cont.contacto ? `(${cont.contacto})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-[11px] text-slate-400 italic">
+                      Directorio vacío. Escribe los datos abajo y pulsa "GUARDAR EN DIRECTORIO".
+                    </span>
+                  )}
                 </div>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setDirectorySearch("");
+                    setNewDirectorioFormOpen(false);
+                    setDirectoryModalOpen(true);
+                  }}
+                  className="text-[10.5px] font-black text-[#2CB1C9] hover:underline flex items-center gap-1 cursor-pointer uppercase tracking-wider"
+                >
+                  <span>Abrir catálogo de clientes</span>
+                  <span>↗</span>
+                </button>
               </div>
             )}
             
@@ -2280,9 +2427,22 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
           {/* DETALLE DE SERVICIOS */}
           <div className="pt-2 border-t border-slate-100 space-y-3">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 select-none">
-              <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-l-4 theme-border-l pl-3.5 pl-3.5 pl-1.5 leading-none">
-                DETALLE DE SERVICIOS
-              </h2>
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-l-4 theme-border-l pl-3.5 leading-none">
+                  DETALLE DE SERVICIOS
+                </h2>
+                {!isDocumentClean && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAddItemModal()}
+                    className="no-print no-pdf bg-[#2CB1C9] hover:bg-[#259eb4] text-slate-950 font-black text-[11px] px-3 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95 uppercase tracking-wide"
+                    title="Agregar nuevo ítem / producto"
+                  >
+                    <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                    <span>Agregar</span>
+                  </button>
+                )}
+              </div>
               {!isDocumentClean && (
                 <div className="no-print no-pdf flex flex-wrap items-center gap-1 bg-slate-50 p-1 rounded-md border border-slate-200/50">
                   <span className="text-[9px] text-slate-400 font-extrabold uppercase mr-1 px-1">Rápidos:</span>
@@ -2291,7 +2451,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                       key={chip.label}
                       onClick={() => handleQuickAddChip(chip)}
                       className="text-[10px] font-extrabold bg-white hover:bg-slate-100 text-slate-600 px-2 py-0.5 rounded transition-all cursor-pointer border border-slate-250 active:scale-95 shadow-sm hover:text-slate-900"
-                      title={chip.desc}
+                      title={`Agregar: ${chip.desc}`}
                     >
                       {chip.label}
                     </button>
@@ -2300,196 +2460,167 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
               )}
             </div>
 
-            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 select-none">
-                    <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[5%] text-center font-sans text-[10px] uppercase">Ítem</th>
-                    <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[50%] font-sans text-[10px] uppercase">Descripción</th>
-                    <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[8%] text-center font-sans text-[10px] uppercase">Cant.</th>
-                    <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[12%] font-sans text-[10px] uppercase">Unidad</th>
-                    <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[13%] text-right font-sans text-[10px] uppercase">P. Unit.</th>
-                    <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[15%] text-right font-sans text-[10px] uppercase">Subtotal</th>
-                    {!isDocumentClean && <th className="p-3 w-[12%] no-print no-pdf"></th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {confirmedOrNotEmptyItems.map((item, idx) => {
-                    const rowNumber = idx + 1;
-                    const isEven = rowNumber % 2 === 0;
-                    
-                    return (
-                      <tr 
-                        key={item.id}
-                        className={`${isEven ? "bg-slate-50/20" : "bg-white"} ${
-                          item.confirmed ? "font-medium animate-fade-in" : "bg-[#2CB1C9]/5"
-                        } transition-all group`}
-                      >
-                        {/* Number */}
-                        <td className="p-3 print:p-1.5 text-center text-slate-400 font-mono font-medium">{rowNumber}</td>
- 
-                        {/* Product / service description */}
-                        <td className="p-3 print:p-1.5">
-                          {item.confirmed || isDocumentClean ? (
-                            <span className="block text-slate-850 py-1 select-all font-medium whitespace-normal leading-relaxed text-[11.5px]">
-                              {item.producto || "-(Concepto de servicio vacío)-"}
-                            </span>
-                          ) : (
-                            <div className="relative">
-                              <input 
-                                type="text" 
-                                list="suggestionsList"
-                                placeholder="Escriba el concepto de servicio principal o seleccione sugerencias..."
-                                value={item.producto}
-                                onChange={(e) => handleItemPropertyChange(item.id, "producto", e.target.value)}
-                                className="w-full text-xs p-2 border border-slate-300 rounded focus:border-[#2CB1C9] focus:outline-none transition-all placeholder:text-slate-400 font-semibold"
-                              />
-                              <datalist id="suggestionsList">
-                                {PRODUCT_SUGGESTIONS.map((v, sIdx) => (
-                                  <option key={sIdx} value={v.nombre} />
-                                ))}
-                              </datalist>
-                            </div>
-                          )}
-                        </td>
- 
-                        {/* Quantity */}
-                        <td className="p-3 print:p-1.5 text-center">
-                          {item.confirmed || isDocumentClean ? (
-                            <span className="font-semibold font-sans text-[11.5px]">{item.cantidad}</span>
-                          ) : (
-                            <input 
-                              type="number" 
-                              min="1"
-                              value={item.cantidad}
-                              onChange={(e) => handleItemPropertyChange(item.id, "cantidad", Number(e.target.value))}
-                              className="w-14 p-1.5 text-center bg-white border border-slate-300 rounded font-bold font-sans text-xs focus:ring-1 focus:ring-[#2CB1C9]"
-                            />
-                          )}
-                        </td>
- 
-                        {/* Unit */}
-                        <td className="p-3 print:p-1.5">
-                          {item.confirmed || isDocumentClean ? (
-                            <span className="font-semibold text-slate-500 text-[11px]">{item.unidad}</span>
-                          ) : (
-                            <select 
-                              value={item.unidad}
-                              onChange={(e) => handleItemPropertyChange(item.id, "unidad", e.target.value)}
-                              className="text-xs p-1.5 bg-white border border-slate-300 rounded focus:ring-1 focus:ring-[#2CB1C9] focus:outline-none font-bold text-slate-600"
-                            >
-                              <option value="Unidad">Unidad</option>
-                              <option value="Millar">Millar</option>
-                              <option value="Docena">Docena</option>
-                              <option value="Ciento">Ciento</option>
-                              <option value="Paquete">Paquete</option>
-                            </select>
-                          )}
-                        </td>
- 
-                        {/* Unit Price */}
-                        <td className="p-3 print:p-1.5 text-right">
-                          {item.confirmed || isDocumentClean ? (
-                            <span className="font-semibold font-sans text-[11.5px]">{moneda} {(item.valorUnitario || 0).toFixed(2)}</span>
-                          ) : (
-                            <div className="flex items-center justify-end gap-1 font-sans text-slate-500">
-                              <span className="select-none text-[10px] font-bold">{moneda}</span>
-                              <input 
-                                type="number" 
-                                step="0.01"
-                                min="0"
-                                value={item.valorUnitario}
-                                onChange={(e) => handleItemPropertyChange(item.id, "valorUnitario", Number(e.target.value))}
-                                className="w-16 p-1.5 text-right bg-white border border-slate-300 rounded font-bold font-sans text-xs focus:ring-1 theme-ring"
-                              />
-                            </div>
-                          )}
-                        </td>
- 
-                        {/* Subtotal */}
-                        <td className="p-3 print:p-1.5 text-right font-sans font-bold text-slate-850 text-[11.5px]">
-                          {moneda} {((item.cantidad || 0) * (item.valorUnitario || 0)).toFixed(2)}
-                        </td>
- 
-                        {/* Edit icon controls */}
-                        {!isDocumentClean && (
-                          <td className="no-print no-pdf p-1 px-2 text-center select-none">
-                            <div className="flex items-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity justify-end">
-                              
-                              {/* Move Row Up/Down action triggers */}
-                              <button
-                                onClick={() => handleMoveItem(idx, "up")}
-                                disabled={idx === 0}
-                                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded disabled:opacity-20 cursor-pointer"
-                                title="Mover hacia arriba"
-                              >
-                                <ArrowUp className="w-3.5 h-3.5" />
-                              </button>
-                              
-                              <button
-                                onClick={() => handleMoveItem(idx, "down")}
-                                disabled={idx === confirmedOrNotEmptyItems.length - 1}
-                                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded disabled:opacity-20 cursor-pointer"
-                                title="Mover hacia abajo"
-                              >
-                                <ArrowDown className="w-3.5 h-3.5" />
-                              </button>
-
-                              {/* Copy Row action trigger */}
-                              <button
-                                onClick={() => handleDuplicateItem(item.id)}
-                                className="p-1 text-slate-400 hover:text-cyan-600 hover:bg-slate-100 rounded cursor-pointer"
-                                title="Duplicar servicio"
-                              >
-                                <Copy className="w-3.5 h-3.5" />
-                              </button>
-
-                              {item.confirmed ? (
-                                <button
-                                  onClick={() => handleEditItem(item.id)}
-                                  className="p-1 text-amber-500 hover:bg-amber-50 rounded cursor-pointer"
-                                  title="Editar"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" />
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => handleConfirmItem(item.id)}
-                                  className="p-1 text-emerald-600 hover:bg-emerald-50 rounded font-bold animate-pulse cursor-pointer"
-                                  title="Confirmar"
-                                >
-                                  <Check className="w-4 h-4 stroke-[3]" />
-                                </button>
-                              )}
-                              
-                              <button
-                                onClick={() => handleRemoveItem(item.id)}
-                                className="p-1 text-rose-500 hover:bg-rose-50 rounded cursor-pointer"
-                                title="Eliminar"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-
+            {/* If empty in editor mode */}
+            {confirmedOrNotEmptyItems.length === 0 ? (
+              <div className="border border-dashed border-slate-300 rounded-xl bg-slate-50/60 p-8 text-center space-y-3">
+                <div className="w-12 h-12 mx-auto rounded-xl bg-[#2CB1C9]/15 text-[#2CB1C9] flex items-center justify-center border border-[#2CB1C9]/30">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                    No hay productos o servicios agregados
+                  </p>
+                  <p className="text-[11px] text-slate-500 max-w-sm mx-auto mt-0.5 font-sans">
+                    Haz clic en <strong>"Agregar"</strong> para registrar el producto o servicio en la ventana emergente con amplio espacio de lectura y edición.
+                  </p>
+                </div>
+                {!isDocumentClean && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAddItemModal()}
+                    className="no-print no-pdf bg-[#2CB1C9] hover:bg-[#259eb4] text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl transition-all cursor-pointer inline-flex items-center gap-2 shadow-sm active:scale-95 uppercase tracking-wider"
+                  >
+                    <Plus className="w-4 h-4 stroke-[3]" />
+                    <span>+ Agregar Ítem</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 select-none">
+                      <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[5%] text-center font-sans text-[10px] uppercase">Ítem</th>
+                      <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[48%] font-sans text-[10px] uppercase">Descripción</th>
+                      <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[8%] text-center font-sans text-[10px] uppercase">Cant.</th>
+                      <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[12%] font-sans text-[10px] uppercase">Unidad</th>
+                      <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[13%] text-right font-sans text-[10px] uppercase">P. Unit.</th>
+                      <th className="p-3 print:p-1.5 font-semibold text-slate-500 w-[14%] text-right font-sans text-[10px] uppercase">Subtotal</th>
+                      {!isDocumentClean && <th className="p-3 w-[12%] no-print no-pdf text-right pr-4 font-sans text-[10px] uppercase text-slate-400">Acciones</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {confirmedOrNotEmptyItems.map((item, idx) => {
+                      const rowNumber = idx + 1;
+                      const isEven = rowNumber % 2 === 0;
+                      
+                      return (
+                        <tr 
+                          key={item.id}
+                          className={`${isEven ? "bg-slate-50/20" : "bg-white"} transition-all group hover:bg-cyan-50/20`}
+                        >
+                          {/* Number */}
+                          <td className="p-3 print:p-1.5 text-center text-slate-400 font-mono font-medium">{rowNumber}</td>
+   
+                          {/* Product / service description */}
+                          <td className="p-3 print:p-1.5">
+                            <div className="text-slate-850 py-1 select-all font-medium whitespace-pre-line leading-relaxed text-[11.5px]">
+                              {item.producto}
                             </div>
                           </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+   
+                          {/* Quantity */}
+                          <td className="p-3 print:p-1.5 text-center">
+                            <span className="font-semibold font-sans text-[11.5px]">{item.cantidad}</span>
+                          </td>
+   
+                          {/* Unit */}
+                          <td className="p-3 print:p-1.5">
+                            <span className="font-semibold text-slate-500 text-[11px]">{item.unidad}</span>
+                          </td>
+   
+                          {/* Unit Price */}
+                          <td className="p-3 print:p-1.5 text-right">
+                            <span className="font-semibold font-sans text-[11.5px]">{moneda} {(item.valorUnitario || 0).toFixed(2)}</span>
+                          </td>
+   
+                          {/* Subtotal */}
+                          <td className="p-3 print:p-1.5 text-right font-sans font-bold text-slate-850 text-[11.5px]">
+                            {moneda} {((item.cantidad || 0) * (item.valorUnitario || 0)).toFixed(2)}
+                          </td>
+   
+                          {/* Action controls */}
+                          {!isDocumentClean && (
+                            <td className="no-print no-pdf p-1 px-3 text-right select-none">
+                              <div className="flex items-center gap-1 justify-end">
+                                
+                                {/* Edit Item (Opens POP-UP modal to read & modify) */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditItemModal(item)}
+                                  className="p-1 px-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-md transition-all cursor-pointer flex items-center gap-1 font-bold text-[10.5px] border border-amber-200"
+                                  title="Editar descripción y valores en ventana emergente"
+                                >
+                                  <Edit2 className="w-3 h-3" />
+                                  <span>Editar</span>
+                                </button>
 
-            {/* Inline add item helper buttons in edit profile */}
-            {!isDocumentClean && (
-              <div className="no-print no-pdf flex justify-start">
+                                {/* Copy Item */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDuplicateItem(item.id)}
+                                  className="p-1 text-slate-400 hover:text-cyan-600 hover:bg-slate-100 rounded cursor-pointer"
+                                  title="Duplicar servicio"
+                                >
+                                  <Copy className="w-3.5 h-3.5" />
+                                </button>
+                                
+                                {/* Move Row Up/Down */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveItem(idx, "up")}
+                                  disabled={idx === 0}
+                                  className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded disabled:opacity-20 cursor-pointer"
+                                  title="Mover hacia arriba"
+                                >
+                                  <ArrowUp className="w-3.5 h-3.5" />
+                                </button>
+                                
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveItem(idx, "down")}
+                                  disabled={idx === confirmedOrNotEmptyItems.length - 1}
+                                  className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded disabled:opacity-20 cursor-pointer"
+                                  title="Mover hacia abajo"
+                                >
+                                  <ArrowDown className="w-3.5 h-3.5" />
+                                </button>
+                                
+                                {/* Remove Item */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveItem(item.id)}
+                                  className="p-1 text-rose-500 hover:bg-rose-50 rounded cursor-pointer"
+                                  title="Eliminar"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Bottom Add button */}
+            {!isDocumentClean && confirmedOrNotEmptyItems.length > 0 && (
+              <div className="no-print no-pdf flex flex-wrap items-center justify-between gap-2 pt-1">
                 <button
-                  onClick={handleAddNewItemRow}
-                  className="text-xs font-black theme-text flex items-center gap-1.5 border border-dashed border-slate-350 hover:border-slate-400 px-4 py-2.5 rounded-lg transition-all cursor-pointer bg-white shadow-sm"
+                  type="button"
+                  onClick={() => handleOpenAddItemModal()}
+                  className="bg-[#2CB1C9] hover:bg-[#259eb4] text-slate-950 font-black text-xs px-3.5 py-2 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95 uppercase tracking-wide"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span className="uppercase tracking-wider">Añadir Concepto / Fila en Blanco</span>
+                  <Plus className="w-4 h-4 stroke-[3]" />
+                  <span>+ Agregar Ítem</span>
                 </button>
+                <span className="text-[11px] text-slate-500 font-sans">
+                  Total de ítems: <strong className="text-slate-800">{confirmedOrNotEmptyItems.length}</strong>
+                </span>
               </div>
             )}
           </div>
@@ -2527,7 +2658,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                 <div className="space-y-3">
                   <textarea 
                     rows={4} 
-                    placeholder="Escribe aquí las condiciones particulares o selecciona plantillas y cláusulas rápidas de abajo..."
+                    placeholder="Escribe aquí las condiciones particulares o selecciona cláusulas de abajo..."
                     value={observaciones}
                     onChange={(e) => {
                       setObservaciones(e.target.value);
@@ -2535,94 +2666,49 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                     className="w-full text-xs p-3 bg-white border border-slate-300 rounded focus:border-slate-550 focus:outline-none transition-all placeholder:text-slate-400 leading-relaxed font-sans font-medium"
                   />
                   
-                  {/* Packs Rápidos Coherentes (1 Clic) - Only shown in Editor Mode */}
-                  <div className="clause-builder no-print no-pdf bg-slate-50 border border-slate-200/80 p-2.5 rounded-lg text-[10px] select-none space-y-2.5 shadow-2xs">
-                    <div className="flex items-center justify-between">
-                      <span className="font-extrabold text-slate-600 uppercase text-[9.5px] tracking-wide flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-[#2CB1C9]" />
-                        <span>Packs Rápidos Coherentes (1 Clic):</span>
-                      </span>
-                      <span className="text-[9px] text-slate-400">Reemplaza armónicamente todas las cláusulas</span>
-                    </div>
+                  {/* Cláusulas por Categoría */}
+                  <div className="clause-builder no-print no-pdf bg-slate-50 border border-slate-200/80 p-2.5 rounded-lg text-[10px] select-none space-y-2 shadow-2xs">
+                    {/* Categorías agrupadas */}
+                    {[
+                      { key: "pago", title: "Forma de Pago" },
+                      { key: "entrega", title: "Tiempo Entrega" },
+                      { key: "validez", title: "Validez Oferta" },
+                      { key: "aprobacion", title: "Visto Bueno" },
+                      { key: "ajustes", title: "Ajustes / Cambios" },
+                      { key: "envio", title: "Entrega / Envío" }
+                    ].map(catGroup => {
+                      const clausulasDeCat = CONDICIONES_CLAUSULAS.filter(c => c.categoria === catGroup.key);
+                      if (!clausulasDeCat.length) return null;
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                      {CONDICIONES_PACKS.map((pack) => {
-                        const isSelected = observaciones === pack.text;
-                        return (
-                          <button
-                            key={pack.id}
-                            type="button"
-                            onClick={() => {
-                              setObservaciones(pack.text);
-                              showNotification(`Plantilla '${pack.label}' aplicada con lógica integral.`, "info");
-                            }}
-                            className={`text-left p-2 rounded-md border transition-all cursor-pointer active:scale-98 ${
-                              isSelected
-                                ? "bg-cyan-50 border-[#2CB1C9] text-cyan-950 font-bold shadow-xs ring-1 ring-[#2CB1C9]/40"
-                                : "bg-white hover:bg-slate-100/90 border-slate-200 text-slate-700 hover:border-slate-300"
-                            }`}
-                          >
-                            <div className="font-extrabold text-[10.5px] text-slate-800 flex items-center justify-between">
-                              <span>{pack.label}</span>
-                              {isSelected && <Check className="w-3.5 h-3.5 text-[#2CB1C9] stroke-[3]" />}
-                            </div>
-                            <p className="text-[9px] text-slate-500 font-normal leading-tight mt-0.5">{pack.desc}</p>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Cláusulas Específicas por Categoría con Reemplazo Inteligente */}
-                    <div className="pt-2 border-t border-slate-200/70 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-slate-600 uppercase text-[9px] tracking-wide block">
-                          Cláusulas por Categoría (Sin contradicciones internas):
-                        </span>
-                        <span className="text-[9px] text-slate-400">Al cambiar una opción, sustituye la contradictoria</span>
-                      </div>
-                      
-                      {/* Categorías agrupadas */}
-                      {[
-                        { key: "pago", title: "Forma de Pago" },
-                        { key: "entrega", title: "Tiempo Entrega" },
-                        { key: "validez", title: "Validez Oferta" },
-                        { key: "aprobacion", title: "Visto Bueno" },
-                        { key: "ajustes", title: "Ajustes / Cambios" },
-                        { key: "envio", title: "Entrega / Envío" }
-                      ].map(catGroup => {
-                        const clausulasDeCat = CONDICIONES_CLAUSULAS.filter(c => c.categoria === catGroup.key);
-                        if (!clausulasDeCat.length) return null;
-
-                        return (
-                          <div key={catGroup.key} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                            <span className="text-[9px] font-bold text-slate-400 min-w-[95px] shrink-0 uppercase tracking-tight">
-                              {catGroup.title}:
-                            </span>
-                            <div className="flex flex-wrap gap-1">
-                              {clausulasDeCat.map((cl) => {
-                                const isPresent = observaciones.includes(cl.text.trim());
-                                return (
-                                  <button
-                                    key={cl.label}
-                                    type="button"
-                                    onClick={() => handleApplyConditionClause(cl.categoria, cl.text)}
-                                    className={`px-2 py-0.5 rounded text-[9.5px] font-semibold transition-all cursor-pointer border flex items-center gap-1 ${
-                                      isPresent
-                                        ? "bg-[#2CB1C9] text-white border-[#2CB1C9] shadow-xs font-bold"
-                                        : "bg-white text-slate-700 hover:bg-slate-100 border-slate-250 hover:border-slate-350"
-                                    }`}
-                                    title={isPresent ? "Haz clic para quitar esta cláusula" : `Haz clic para seleccionar (sustituye cualquier otra de ${catGroup.title})`}
-                                  >
-                                    {isPresent && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                                    <span>{cl.label}</span>
-                                  </button>
-                                );
-                              })}
-                            </div>
+                      return (
+                        <div key={catGroup.key} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+                          <span className="text-[9px] font-bold text-slate-400 min-w-[95px] shrink-0 uppercase tracking-tight">
+                            {catGroup.title}:
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {clausulasDeCat.map((cl) => {
+                              const isPresent = observaciones.includes(cl.text.trim());
+                              return (
+                                <button
+                                  key={cl.label}
+                                  type="button"
+                                  onClick={() => handleApplyConditionClause(cl.categoria, cl.text)}
+                                  className={`px-2 py-0.5 rounded text-[9.5px] font-semibold transition-all cursor-pointer border flex items-center gap-1 ${
+                                    isPresent
+                                      ? "bg-[#2CB1C9] text-white border-[#2CB1C9] shadow-xs font-bold"
+                                      : "bg-white text-slate-700 hover:bg-slate-100 border-slate-250 hover:border-slate-350"
+                                  }`}
+                                  title={isPresent ? "Haz clic para quitar esta cláusula" : `Haz clic para seleccionar (${catGroup.title})`}
+                                >
+                                  {isPresent && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                  <span>{cl.label}</span>
+                                </button>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -2941,6 +3027,491 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
 
       {/* 
         ===========================================================
+        MODAL DIRECTORIO DE CLIENTES (MOSTRAR DIRECTORIO)
+        =========================================================== 
+      */}
+      {directoryModalOpen && (
+        <div className="no-print print:hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-[3px] p-3 sm:p-4 transition-all animate-fade-in font-sans">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full flex flex-col overflow-hidden max-h-[90vh] border border-slate-200">
+            
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-800 bg-[#040D16] text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-[#2CB1C9]/20 text-[#2CB1C9] rounded-lg border border-[#2CB1C9]/30">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+                    <span>Directorio de Clientes</span>
+                    <span className="text-[10px] font-bold bg-[#2CB1C9] text-[#040D16] px-2 py-0.5 rounded-full">
+                      {contactos.length} {contactos.length === 1 ? "cliente" : "clientes"}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Elige un cliente para cargar automáticamente su Razón Social, RUC, contacto y teléfono.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setNewDirectorioFormOpen(!newDirectorioFormOpen)}
+                  className="bg-[#2CB1C9] hover:bg-[#259eb4] text-slate-950 font-black text-xs px-2.5 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1"
+                  title="Agregar un nuevo cliente directamente al directorio"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                  <span>{newDirectorioFormOpen ? "Cerrar Formulario" : "Nuevo Cliente"}</span>
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setDirectoryModalOpen(false);
+                    setNewDirectorioFormOpen(false);
+                  }}
+                  className="text-slate-400 hover:text-white transition-all cursor-pointer p-1.5 rounded-lg hover:bg-white/10"
+                  title="Cerrar directorio"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* In-Modal Quick New Client Form */}
+            {newDirectorioFormOpen && (
+              <div className="p-4 bg-slate-900 text-white border-b border-slate-800 animate-fade-in space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black text-[#2CB1C9] uppercase tracking-wider flex items-center gap-1.5">
+                    <span>+ Registrar Nuevo Cliente en Directorio</span>
+                  </h4>
+                  <span className="text-[10px] text-slate-400">Completa los campos deseados</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Empresa / Razón Social *</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. Mi Cliente S.A.C."
+                      value={newDirectorioCliente.nombre}
+                      onChange={(e) => setNewDirectorioCliente({ ...newDirectorioCliente, nombre: e.target.value })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs text-white placeholder:text-slate-500 focus:border-[#2CB1C9] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">RUC / DNI</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. 20601234567"
+                      value={newDirectorioCliente.ruc}
+                      onChange={(e) => setNewDirectorioCliente({ ...newDirectorioCliente, ruc: e.target.value })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs text-white placeholder:text-slate-500 focus:border-[#2CB1C9] focus:outline-none font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Nombre de Contacto</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. Juan Pérez"
+                      value={newDirectorioCliente.contacto}
+                      onChange={(e) => setNewDirectorioCliente({ ...newDirectorioCliente, contacto: e.target.value })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs text-white placeholder:text-slate-500 focus:border-[#2CB1C9] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Teléfono / WhatsApp</label>
+                    <input
+                      type="text"
+                      placeholder="Ej. +51 991 234 567"
+                      value={newDirectorioCliente.telefono}
+                      onChange={(e) => setNewDirectorioCliente({ ...newDirectorioCliente, telefono: e.target.value })}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs text-white placeholder:text-slate-500 focus:border-[#2CB1C9] focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setNewDirectorioFormOpen(false)}
+                    className="px-3 py-1.5 text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddNewDirectorioCliente(false)}
+                    className="bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                  >
+                    Solo Guardar en Directorio
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddNewDirectorioCliente(true)}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs px-4 py-1.5 rounded-lg transition-colors cursor-pointer shadow-sm"
+                  >
+                    Guardar y Elegir para Cotización
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Search Input Bar */}
+            <div className="p-3.5 bg-slate-100 border-b border-slate-200">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input 
+                  type="text" 
+                  placeholder="Buscar por Empresa / Razón Social, RUC, Contacto o Teléfono..."
+                  value={directorySearch}
+                  onChange={(e) => setDirectorySearch(e.target.value)}
+                  className="w-full text-xs pl-9 pr-8 py-2.5 bg-white border border-slate-300 rounded-lg focus:border-[#2CB1C9] focus:outline-none transition-all placeholder:text-slate-400 font-medium font-sans"
+                  autoFocus
+                />
+                {directorySearch && (
+                  <button 
+                    type="button" 
+                    onClick={() => setDirectorySearch("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs p-1 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Client List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2.5 bg-slate-50 min-h-[220px]">
+              {contactos.length === 0 ? (
+                <div className="text-center py-10 px-6 border border-dashed border-slate-200 bg-white rounded-xl text-slate-400 space-y-3 select-none">
+                  <Users className="w-12 h-12 text-slate-300 mx-auto" />
+                  <div>
+                    <p className="text-xs font-bold text-slate-700 uppercase">Directorio Vacío</p>
+                    <p className="text-[11px] text-slate-500 max-w-sm mx-auto mt-1">
+                      Aún no tienes clientes guardados en el directorio. Puedes agregar tu primer cliente o cargar ejemplos para probar.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setNewDirectorioFormOpen(true)}
+                      className="bg-[#2CB1C9] hover:bg-[#259eb4] text-slate-950 font-black text-xs px-3.5 py-2 rounded-lg cursor-pointer transition-all shadow-sm flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                      <span>Registrar Primer Cliente</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLoadSampleContactos}
+                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3 py-2 rounded-lg cursor-pointer transition-all"
+                    >
+                      Cargar Clientes de Ejemplo
+                    </button>
+                  </div>
+                </div>
+              ) : filteredContactos.length === 0 ? (
+                <div className="text-center py-10 px-4 text-slate-400 space-y-2 select-none">
+                  <p className="text-xs font-semibold">No se encontraron clientes con "{directorySearch}"</p>
+                  <button 
+                    type="button"
+                    onClick={() => setDirectorySearch("")}
+                    className="text-[11px] text-[#2CB1C9] hover:underline font-bold cursor-pointer"
+                  >
+                    Limpiar filtro de búsqueda
+                  </button>
+                </div>
+              ) : (
+                filteredContactos.map((cont, cIdx) => (
+                  <div 
+                    key={cIdx}
+                    onClick={() => handleSelectContacto(cont)}
+                    className="bg-white border border-slate-200 hover:border-[#2CB1C9] hover:shadow-md rounded-xl p-3.5 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group cursor-pointer"
+                  >
+                    <div className="space-y-1.5 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-black text-xs text-slate-900 group-hover:text-[#2CB1C9] transition-colors">
+                          🏢 {cont.nombre}
+                        </span>
+                        {cont.ruc && (
+                          <span className="bg-slate-100 text-slate-700 font-mono text-[10px] font-bold px-2 py-0.5 rounded border border-slate-200">
+                            RUC: {cont.ruc}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600 font-medium">
+                        {cont.contacto && (
+                          <span className="flex items-center gap-1">
+                            👤 <strong>Contacto:</strong> {cont.contacto}
+                          </span>
+                        )}
+                        {cont.telefono && (
+                          <span className="flex items-center gap-1 text-emerald-700 font-semibold">
+                            📞 {cont.telefono}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectContacto(cont)}
+                        className="bg-[#2CB1C9] hover:bg-[#259eb4] text-slate-950 text-xs font-black px-3.5 py-2 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
+                        title="Cargar todos los datos de este cliente en la cotización actual"
+                      >
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        <span>Elegir Cliente</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSingleContacto(cont.nombre)}
+                        className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-2 rounded-lg transition-all cursor-pointer"
+                        title="Eliminar este cliente del directorio"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3.5 bg-slate-100 border-t border-slate-200 flex items-center justify-between select-none">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-slate-500 font-medium">
+                  Mostrando {filteredContactos.length} de {contactos.length} clientes
+                </span>
+                {contactos.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={handleLoadSampleContactos}
+                    className="text-[10.5px] font-bold text-[#2CB1C9] hover:underline cursor-pointer"
+                  >
+                    + Ejemplos
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setDirectoryModalOpen(false);
+                  setNewDirectorioFormOpen(false);
+                }}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer uppercase tracking-wider"
+              >
+                Cerrar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 
+        ===========================================================
+        MODAL AGREGAR / MODIFICAR ÍTEM (ESTILO SUNAT POP-UP)
+        =========================================================== 
+      */}
+      {itemModalOpen && (
+        <div className="no-print print:hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-[3px] p-3 sm:p-4 transition-all animate-fade-in font-sans">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full flex flex-col overflow-hidden max-h-[92vh] border border-slate-200">
+            
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-800 bg-[#040D16] text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-[#2CB1C9]/20 text-[#2CB1C9] rounded-xl border border-[#2CB1C9]/30">
+                  {editingItemId ? <Edit2 className="w-5 h-5" /> : <Plus className="w-5 h-5 stroke-[2.5]" />}
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
+                    <span>{editingItemId ? "Modificar Ítem / Producto" : "Agregar Ítem / Producto"}</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {editingItemId 
+                      ? "Lee, revisa y corrige la descripción y los datos del ítem con total comodidad." 
+                      : "Ingresa la descripción detallada, cantidad y precio del producto o servicio."}
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setItemModalOpen(false)}
+                className="text-slate-400 hover:text-white transition-all cursor-pointer p-1.5 rounded-lg hover:bg-white/10"
+                title="Cerrar ventana"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-slate-50">
+              
+              {/* Row 1: Unidad de Medida, Cantidad, Valor Unitario */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Unidad */}
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-600 block mb-1">
+                    Unidad de Medida
+                  </label>
+                  <select
+                    value={modalItemData.unidad}
+                    onChange={(e) => setModalItemData({ ...modalItemData, unidad: e.target.value })}
+                    className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg focus:border-[#2CB1C9] focus:outline-none font-bold text-slate-700 shadow-2xs"
+                  >
+                    <option value="Unidad">Unidad</option>
+                    <option value="Millar">Millar</option>
+                    <option value="Ciento">Ciento</option>
+                    <option value="Docena">Docena</option>
+                    <option value="Paquete">Paquete</option>
+                    <option value="Servicio">Servicio</option>
+                    <option value="Metro">Metro</option>
+                    <option value="Global">Global</option>
+                    <option value="Horas">Horas</option>
+                  </select>
+                </div>
+
+                {/* Cantidad */}
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-600 block mb-1">
+                    Cantidad *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="any"
+                    value={modalItemData.cantidad}
+                    onChange={(e) => setModalItemData({ ...modalItemData, cantidad: Number(e.target.value) })}
+                    className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg focus:border-[#2CB1C9] focus:outline-none font-bold text-slate-800 font-sans shadow-2xs"
+                  />
+                </div>
+
+                {/* Valor Unitario */}
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-600 block mb-1">
+                    Valor / P. Unit. ({moneda})
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 select-none">
+                      {moneda}
+                    </span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={modalItemData.valorUnitario}
+                      onChange={(e) => setModalItemData({ ...modalItemData, valorUnitario: Number(e.target.value) })}
+                      className="w-full text-xs pl-8 pr-2.5 py-2.5 bg-white border border-slate-300 rounded-lg focus:border-[#2CB1C9] focus:outline-none font-bold text-slate-800 font-sans shadow-2xs"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2: Descripción (Spacious, Comfortable Textarea) */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-black uppercase text-slate-700 flex items-center gap-1.5">
+                    <span>Descripción del Producto o Servicio</span>
+                    <span className="text-rose-500 font-bold">*</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {modalItemData.producto.length} caracteres
+                    </span>
+                    {modalItemData.producto.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => setModalItemData({ ...modalItemData, producto: "" })}
+                        className="text-[10px] text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                        title="Limpiar descripción"
+                      >
+                        Limpiar
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <textarea
+                  rows={6}
+                  value={modalItemData.producto}
+                  onChange={(e) => setModalItemData({ ...modalItemData, producto: e.target.value })}
+                  placeholder="Escribe la descripción completa del producto o servicio... Tienes amplio espacio para detallar materiales, acabados, medidas, especificaciones o requisitos sin cortes de línea."
+                  className="w-full text-xs sm:text-sm p-3.5 bg-white border border-slate-300 rounded-xl focus:border-[#2CB1C9] focus:ring-2 focus:ring-[#2CB1C9]/20 focus:outline-none transition-all placeholder:text-slate-400 font-sans font-medium leading-relaxed text-slate-850 resize-y shadow-2xs"
+                  autoFocus
+                />
+                <p className="text-[10px] text-slate-400">
+                  💡 Puedes redactar libremente en varios párrafos o líneas. Se mantendrá la lectura clara tanto en pantalla como en el PDF final.
+                </p>
+              </div>
+
+              {/* Row 3: Plantillas / Chips Rápidos para rellenar */}
+              <div className="bg-white border border-slate-200/90 rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase text-slate-600 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#2CB1C9]" />
+                    <span>Sugerencias / Plantillas Rápidas:</span>
+                  </span>
+                  <span className="text-[9.5px] text-slate-400">Clic para rellenar descripción</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {POPULAR_CHIPS.map(chip => (
+                    <button
+                      key={chip.label}
+                      type="button"
+                      onClick={() => {
+                        setModalItemData({
+                          ...modalItemData,
+                          producto: chip.desc,
+                          unidad: chip.unit,
+                          valorUnitario: chip.price || modalItemData.valorUnitario
+                        });
+                      }}
+                      className="text-[10.5px] font-bold bg-slate-50 hover:bg-[#2CB1C9]/10 hover:text-[#0b6b7d] hover:border-[#2CB1C9]/50 text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 transition-all cursor-pointer shadow-2xs active:scale-95"
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Row 4: Resumen de Cálculo en tiempo real */}
+              <div className="bg-[#040D16] text-white rounded-xl p-3.5 flex items-center justify-between shadow-sm border border-slate-800">
+                <div className="text-[11px] text-slate-300">
+                  <span className="font-semibold uppercase tracking-wider text-[10px] text-slate-400">Subtotal del Ítem:</span>
+                  <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                    {modalItemData.cantidad || 0} {modalItemData.unidad} × {moneda} {(Number(modalItemData.valorUnitario) || 0).toFixed(2)}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-base sm:text-lg font-black text-[#2CB1C9] font-sans tracking-tight">
+                    {moneda} {((Number(modalItemData.cantidad) || 0) * (Number(modalItemData.valorUnitario) || 0)).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-3.5 sm:p-4 bg-slate-100 border-t border-slate-200 flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setItemModalOpen(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer rounded-lg hover:bg-slate-200"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveItemModal}
+                className="bg-[#2CB1C9] hover:bg-[#259eb4] text-slate-950 font-black text-xs px-5 py-2.5 rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-md active:scale-95 uppercase tracking-wider"
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                <span>{editingItemId ? "Aceptar / Guardar Cambios" : "Aceptar / Agregar Ítem"}</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 
+        ===========================================================
         1. CIERRE DE VENTAS Y COMUNICACIÓN RÁPIDA (MODAL EJECUTIVO)
         =========================================================== 
       */}
@@ -2983,7 +3554,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                   <span className="text-xs font-bold text-slate-800">
                     {currentQuoteStatus === "aprobada" ? "🟢 Venta Cerrada / Aprobada" :
                      currentQuoteStatus === "rechazada" ? "🔴 Rechazada / No Concretada" :
-                     "🟡 Cotización Enviada (En Seguimiento)"}
+                     "🟡 Cotización Enviada (Pendiente)"}
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-250">
@@ -3037,7 +3608,7 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1.5">
                   Selecciona la Etapa de Comunicación:
                 </span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => handleSelectSalesTemplate("formal")}
@@ -3049,19 +3620,6 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                   >
                     <span className="text-xs flex items-center gap-1.5">🌟 Envío Formal</span>
                     <span className="text-[9.5px] font-medium text-slate-400 leading-tight">Propuesta, cuentas y PDF</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSelectSalesTemplate("seguimiento")}
-                    className={`p-2.5 rounded-xl border font-bold text-left transition-all cursor-pointer flex flex-col gap-1 ${
-                      salesTemplate === "seguimiento"
-                        ? "bg-amber-50 border-amber-500 text-amber-900 ring-2 ring-amber-400/30"
-                        : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
-                    }`}
-                  >
-                    <span className="text-xs flex items-center gap-1.5">⚡ Seguimiento</span>
-                    <span className="text-[9.5px] font-medium text-slate-400 leading-tight">Follow-up para cerrar venta</span>
                   </button>
 
                   <button

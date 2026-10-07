@@ -26,6 +26,7 @@
     "firebase": "^12.14.0",
     "firebase-admin": "^14.1.0",
     "html2canvas": "^1.4.1",
+    "html2canvas-pro": "^2.5.2",
     "html2pdf.js": "^0.14.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.546.0",

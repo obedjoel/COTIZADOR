@@ -45,7 +45,7 @@ export interface Cotizacion {
   bancoDolares?: string;       // Bank account 2 details
   cciDolares?: string;         // CCI 2 details
   detracciones?: string;       // Detracciones bank details or note
-  brandName?: string;          // Name of the brand (e.g. ONE ESPACIO CREATIVO)
+  brandName?: string;          // Name of the brand (e.g. ONE ESTUDIO GRÁFICO)
   brandSubtitle?: string;      // Subtitle of the brand
   emisorNombre?: string;       // Name of the issuer (e.g. OBED GUEVARA)
   emisorRuc?: string;          // RUC of the issuer
