@@ -1,9 +1,11 @@
 {
-  "projectId": "argon-tractor-457503-u7",
-  "appId": "1:350788310302:web:0ae3c95c6a3e64417c650f",
-  "apiKey": "AIzaSyDJ9XTBfyG5e1gZ8CLcb2avCi3U0MQ6sao",
-  "authDomain": "argon-tractor-457503-u7.firebaseapp.com",
-  "storageBucket": "argon-tractor-457503-u7.firebasestorage.app",
-  "messagingSenderId": "350788310302",
-  "measurementId": ""
+  "projectId": "quotequick-4t9yh",
+  "appId": "1:941177321343:web:3fbcdc9b472963408f0c4a",
+  "apiKey": "AIzaSyA5V97kMkUW-ddmOLvxtmababsGRr_hdxI",
+  "authDomain": "quotequick-4t9yh.firebaseapp.com",
+  "storageBucket": "quotequick-4t9yh.firebasestorage.app",
+  "messagingSenderId": "941177321343",
+  "measurementId": "",
+  "oAuthClientId": "941177321343-jsfql4dml6jp8g0kfkt9rm0pajn9qu1t.apps.googleusercontent.com",
+  "recaptchaSiteKey": ""
 }

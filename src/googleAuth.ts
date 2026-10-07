@@ -6,9 +6,12 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
-// If you still want to allow Google Sheets scopes, keep them:
-provider.addScope('https://www.googleapis.com/auth/spreadsheets');
-provider.addScope('https://www.googleapis.com/auth/drive.file');
+export const SCOPES = [
+  'https://www.googleapis.com/auth/spreadsheets',
+  'https://www.googleapis.com/auth/drive.file'
+];
+
+SCOPES.forEach(scope => provider.addScope(scope));
 
 let isSigningIn = false;
 let cachedAccessToken: string | null = null;
