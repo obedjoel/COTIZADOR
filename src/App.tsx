@@ -58,24 +58,30 @@ function getActiveFirebaseDb() {
 const PRODUCT_SUGGESTIONS = [
   { nombre: 'Tarjetas de presentación couché 400 gr.', unidad: 'Millar' },
   { nombre: 'Fotochecks de PVC (impresión directa)', unidad: 'Unidad' },
-  { nombre: 'Volantes A5', unidad: 'Millar' },
-  { nombre: 'Volantes A6', unidad: 'Millar' },
-  { nombre: 'Volantes A7', unidad: 'Millar' },
+  { nombre: 'Cintas sublimadas con mosquetón', unidad: 'Unidad' },
+  { nombre: 'Volantes A5 en couché 115 gr.', unidad: 'Millar' },
+  { nombre: 'Volantes A6 en couché 115 gr.', unidad: 'Millar' },
+  { nombre: 'Volantes A7 en couché 115 gr.', unidad: 'Millar' },
   { nombre: 'Folders Foldcote C14', unidad: 'Ciento' },
   { nombre: 'Folders Foldcote C16', unidad: 'Ciento' },
-  { nombre: 'Afiches A3', unidad: 'Unidad' },
-  { nombre: 'Afiches A2', unidad: 'Unidad' }
+  { nombre: 'Afiches couché de 115gr', unidad: 'Ciento' },
+  { nombre: 'Banner lona de 12 oz', unidad: 'Unidad' },
+  { nombre: 'Dípticos couché 150 gr.', unidad: 'Ciento' },
+  { nombre: 'Trifoliados couché 150 gr.', unidad: 'Ciento' }
 ];
 
 const POPULAR_CHIPS = [
   { label: "+ 💳 Tarjetas", desc: "Tarjetas de presentación couché 400 gr. con acabado plastificado mate", price: 0, unit: "Millar" },
   { label: "+ 🎨 Logo", desc: "Diseño de Logotipo e Identidad Corporativa (Propuestas gráficas + Paleta de colores + Tipografías + Entregables vectoriales)", price: 0, unit: "Unidad" },
   { label: "+ 📣 Volantes", desc: "Volantes publicitarios formato A5 en papel couché 115 gr. full color de alta calidad", price: 0, unit: "Millar" },
-  { label: "+ 🛡️ Fotochecks", desc: "Fotochecks de PVC de alta duración con cinta sublimada de 20mm con mosquetón (impresión directa)", price: 0, unit: "Unidad" },
+  { label: "+ 🛡️ Fotochecks", desc: "Fotochecks de PVC de alta duración (impresión directa)", price: 0, unit: "Unidad" },
+  { label: "+ 🎗️ Cintas sublimadas", desc: "Cintas sublimadas de 20mm con mosquetón para fotocheck", price: 0, unit: "Unidad" },
   { label: "+ 📱 Packs Redes", desc: "Diseño y maquetación de 12 plantillas digitales editables para publicaciones de Instagram/Facebook", price: 0, unit: "Unidad" },
-  { label: "+ 📁 Folders", desc: "Folders institucionales en cartulina Foldcote C16 tintero, troquelado especial y plastificado mate", price: 0, unit: "Ciento" },
-  { label: "+ 🪧 Afiches", desc: "Afiches A3 impresión láser full color en papel couché de 150gr", price: 0, unit: "Ciento" },
-  { label: "+ 🖼️ Banners", desc: "Banner publicitario impreso en lona de 13oz con ollaos esquineros para colgar", price: 0, unit: "Unidad" }
+  { label: "+ 📁 Folders", desc: "Folders institucionales en cartulina Foldcote C14 tintero, troquelado especial y plastificado mate", price: 0, unit: "Ciento" },
+  { label: "+ 🪧 Afiches", desc: "Afiches A3 impresión láser full color en papel couché de 115gr", price: 0, unit: "Ciento" },
+  { label: "+ 🖼️ Banners", desc: "Banner publicitario impreso en lona de 12oz con ollaos esquineros para colgar", price: 0, unit: "Unidad" },
+  { label: "+ 📄 Dípticos", desc: "Dípticos publicitarios formato A4 abierto en papel couché 150 gr. full color con doblado central", price: 0, unit: "Ciento" },
+  { label: "+ 📜 Trifoliados", desc: "Folletos trifoliados (trípticos) formato A4 en papel couché 150 gr. full color con 2 pliegues", price: 0, unit: "Ciento" }
 ];
 
 // CLÁUSULAS POR CATEGORÍA CON LÓGICA DE REEMPLAZO INTELIGENTE (Sin contradicciones internas)
@@ -204,8 +210,10 @@ export default function App() {
   const [historyOpen, setHistoryOpen] = useState<boolean>(false);
 
   // Document states
+  const now = new Date();
+  const defaultCurrentPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-`;
   const [fechaActual, setFechaActual] = useState<string>("");
-  const [cotizacionPrefix, setCotizacionPrefix] = useState<string>("2026-10-");
+  const [cotizacionPrefix, setCotizacionPrefix] = useState<string>(defaultCurrentPrefix);
   const [cotizacionNumero, setCotizacionNumero] = useState<string>("00001");
   
   // Client & project state
@@ -357,7 +365,7 @@ export default function App() {
     const mm = String(today.getMonth() + 1).padStart(2, "0");
     const yyyy = today.getFullYear();
     const activeFecha = `${dd}/${mm}/${yyyy}`;
-    const activePrefix = "2026-10-";
+    const activePrefix = `${yyyy}-${mm}-`;
     
     setFechaActual(activeFecha);
     setCotizacionPrefix(activePrefix);
@@ -1072,8 +1080,12 @@ export default function App() {
       onConfirm: () => {
         const resetCliente = { nombre: "", ruc: "", contacto: "", telefono: "" };
         const resetProyecto = "";
-        const offlineHist = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
-        const resetNumero = getNextSuggestedInvoiceNumber(cotizacionPrefix, offlineHist);
+        const today = new Date();
+        const mm = String(today.getMonth() + 1).padStart(2, "0");
+        const yyyy = today.getFullYear();
+        const freshPrefix = `${yyyy}-${mm}-`;
+        setCotizacionPrefix(freshPrefix);
+        const resetNumero = getNextSuggestedInvoiceNumber(freshPrefix, offlineHist);
         const resetObs = "";
         const resetItems: CotizacionItem[] = [];
 
@@ -1112,14 +1124,15 @@ export default function App() {
     });
   };
 
-  // Nomenclatura oficial exigida: ONE COTIZACIÓN 2026-10-(ingresar el número de cotización)
+  // Nomenclatura oficial dinámica: ONE COTIZACIÓN YYYY-MM-(número)
   const getFullQuotationFilename = (prefix = cotizacionPrefix, numero = cotizacionNumero) => {
     let cleanNum = String(numero || "00001").trim();
-    if (cleanNum.startsWith("2026-10-")) {
-      cleanNum = cleanNum.replace("2026-10-", "");
+    const effectivePrefix = prefix || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-`;
+    if (cleanNum.startsWith(effectivePrefix)) {
+      cleanNum = cleanNum.replace(effectivePrefix, "");
     }
     cleanNum = cleanNum.replace(/^[ -]+/, "").trim() || "00001";
-    return `ONE COTIZACIÓN 2026-10-${cleanNum}`;
+    return `ONE COTIZACIÓN ${effectivePrefix}${cleanNum}`;
   };
 
   // Descarga directa de archivo PDF con la nomenclatura requerida: ONE COTIZACIÓN 2026-10-XXXXX.pdf
@@ -1846,20 +1859,12 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
 
       {/* Preview header reminder */}
       {previewMode && (
-        <div className="no-print print:hidden bg-[#2CB1C9] text-white px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between sticky top-0 z-40 rounded-xl max-w-[900px] w-full mx-auto shadow-md mb-4 gap-3 animate-fade-in select-none">
+        <div className="no-print print:hidden bg-[#2CB1C9] text-white px-5 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-40 rounded-xl max-w-[900px] w-full mx-auto shadow-lg mb-4 gap-3 animate-fade-in select-none border border-cyan-300/30">
           <div className="flex items-center gap-2">
             <Eye className="w-4 h-4 animate-pulse" />
             <span className="text-xs font-bold tracking-wider uppercase">VISTA PREVIA DEL DOCUMENTO</span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => handleOpenSalesModal()}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
-              title="Abrir panel de Cierre de Ventas y WhatsApp"
-            >
-              <Rocket className="w-3.5 h-3.5 text-emerald-200" />
-              <span>Cierre & WhatsApp</span>
-            </button>
+          <div className="flex items-center gap-2 ml-auto">
             <button
               onClick={() => handleDownloadDirectPDF()}
               className="bg-[#040D16] hover:bg-black text-[#2CB1C9] border border-[#2CB1C9]/50 text-xs font-bold px-3.5 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
@@ -1886,9 +1891,11 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
             </button>
             <button
               onClick={() => setPreviewMode(false)}
-              className="bg-white hover:bg-slate-50 text-[#040d16] text-xs font-extrabold px-4 py-1.5 rounded-full transition-all cursor-pointer active:scale-95"
+              className="ml-2 bg-white/20 hover:bg-white text-white hover:text-[#040D16] p-2 rounded-full transition-all cursor-pointer flex items-center justify-center active:scale-90 shadow-sm"
+              title="Regresar al editor"
+              aria-label="Cerrar vista previa y regresar al editor"
             >
-              Regresar al Editor
+              <X className="w-6 h-6 stroke-[2.5]" />
             </button>
           </div>
         </div>
@@ -2544,27 +2551,6 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                             <td className="no-print no-pdf p-1 px-3 text-right select-none">
                               <div className="flex items-center gap-1 justify-end">
                                 
-                                {/* Edit Item (Opens POP-UP modal to read & modify) */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEditItemModal(item)}
-                                  className="p-1 px-2 text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-md transition-all cursor-pointer flex items-center gap-1 font-bold text-[10.5px] border border-amber-200"
-                                  title="Editar descripción y valores en ventana emergente"
-                                >
-                                  <Edit2 className="w-3 h-3" />
-                                  <span>Editar</span>
-                                </button>
-
-                                {/* Copy Item */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleDuplicateItem(item.id)}
-                                  className="p-1 text-slate-400 hover:text-cyan-600 hover:bg-slate-100 rounded cursor-pointer"
-                                  title="Duplicar servicio"
-                                >
-                                  <Copy className="w-3.5 h-3.5" />
-                                </button>
-                                
                                 {/* Move Row Up/Down */}
                                 <button
                                   type="button"
@@ -2585,16 +2571,39 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                                 >
                                   <ArrowDown className="w-3.5 h-3.5" />
                                 </button>
-                                
-                                {/* Remove Item */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveItem(item.id)}
-                                  className="p-1 text-rose-500 hover:bg-rose-50 rounded cursor-pointer"
-                                  title="Eliminar"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+
+                                {/* Grupo de acciones juntas: Editar (solo ícono), Copiar y Borrar */}
+                                <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200 ml-1">
+                                  {/* Edit Item - Solo Ícono */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditItemModal(item)}
+                                    className="p-1 text-amber-600 hover:text-amber-800 hover:bg-amber-100/80 rounded transition-all cursor-pointer"
+                                    title="Editar servicio"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  {/* Copy Item */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDuplicateItem(item.id)}
+                                    className="p-1 text-cyan-600 hover:text-cyan-800 hover:bg-cyan-100/80 rounded transition-all cursor-pointer"
+                                    title="Copiar / Duplicar servicio"
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  {/* Remove Item */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveItem(item.id)}
+                                    className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-100/80 rounded transition-all cursor-pointer"
+                                    title="Eliminar servicio"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
 
                               </div>
                             </td>
@@ -2863,16 +2872,6 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
 
           <button 
             type="button"
-            onClick={() => handleOpenSalesModal()}
-            className="py-2.5 px-4.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-lg text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md uppercase active:scale-95"
-            title="Abrir panel de Cierre de Ventas y Comunicación Rápida por WhatsApp"
-          >
-            <Rocket className="w-4 h-4 fill-white/20 text-emerald-200" />
-            <span>Cierre & WhatsApp</span>
-          </button>
-
-          <button 
-            type="button"
             onClick={() => handleDownloadDirectPDF()}
             className="py-2.5 px-4 bg-[#040D16] hover:bg-black text-[#2CB1C9] border border-[#2CB1C9] font-black rounded-lg text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md uppercase active:scale-95"
             title={`Descargar archivo PDF: ${getFullQuotationFilename()}.pdf`}
@@ -2953,20 +2952,6 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
                       }`}>
                         {q.status === 'aprobada' ? '🟢 Aprobada' : q.status === 'rechazada' ? '🔴 Cancelada' : '🟡 Pendiente'}
                       </span>
-
-                      {/* Botón Cierre & WhatsApp */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenSalesModal(q);
-                        }}
-                        className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md transition-all cursor-pointer flex items-center gap-1 text-[10.5px] font-bold border border-emerald-200"
-                        title="Abrir panel de Cierre de Ventas y WhatsApp"
-                      >
-                        <Rocket className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="hidden sm:inline">Cierre</span>
-                      </button>
 
                       {/* Botón Descargar PDF */}
                       <button
@@ -3512,249 +3497,6 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
 
       {/* 
         ===========================================================
-        1. CIERRE DE VENTAS Y COMUNICACIÓN RÁPIDA (MODAL EJECUTIVO)
-        =========================================================== 
-      */}
-      {salesModalOpen && (
-        <div className="no-print print:hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-[3px] p-3 sm:p-4 transition-all animate-fade-in font-sans">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full flex flex-col overflow-hidden max-h-[92vh] border border-slate-200">
-            
-            {/* Modal Header */}
-            <div className="p-4 sm:p-5 border-b border-slate-800 bg-[#040D16] text-white flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg border border-emerald-500/30">
-                  <Rocket className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-white flex items-center gap-2">
-                    Cierre de Ventas y Comunicación Rápida
-                  </h3>
-                  <p className="text-[10.5px] text-cyan-300 font-mono mt-0.5">
-                    Archivo: {getFullQuotationFilename(salesTargetQuote?.prefix, salesTargetQuote?.numero)}.pdf
-                  </p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setSalesModalOpen(false)}
-                className="text-slate-400 hover:text-white transition-all cursor-pointer p-1 rounded-lg hover:bg-slate-800"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Scrollable Body */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-slate-50 text-xs">
-              
-              {/* Sales Status Pipeline Selector */}
-              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
-                    Estado en el Embudo de Ventas:
-                  </span>
-                  <span className="text-xs font-bold text-slate-800">
-                    {currentQuoteStatus === "aprobada" ? "🟢 Venta Cerrada / Aprobada" :
-                     currentQuoteStatus === "rechazada" ? "🔴 Rechazada / No Concretada" :
-                     "🟡 Cotización Enviada (Pendiente)"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-250">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const qId = salesTargetQuote ? salesTargetQuote.id : `${cotizacionPrefix}${cotizacionNumero}`;
-                      handleUpdateQuoteStatus(qId, "pendiente");
-                    }}
-                    className={`px-2.5 py-1 rounded text-[10.5px] font-extrabold transition-all cursor-pointer ${
-                      currentQuoteStatus === "pendiente" 
-                        ? "bg-amber-500 text-white shadow-sm" 
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    🟡 Pendiente
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const qId = salesTargetQuote ? salesTargetQuote.id : `${cotizacionPrefix}${cotizacionNumero}`;
-                      handleUpdateQuoteStatus(qId, "aprobada");
-                    }}
-                    className={`px-2.5 py-1 rounded text-[10.5px] font-extrabold transition-all cursor-pointer ${
-                      currentQuoteStatus === "aprobada" 
-                        ? "bg-emerald-600 text-white shadow-sm" 
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    🟢 Aprobada
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const qId = salesTargetQuote ? salesTargetQuote.id : `${cotizacionPrefix}${cotizacionNumero}`;
-                      handleUpdateQuoteStatus(qId, "rechazada");
-                    }}
-                    className={`px-2.5 py-1 rounded text-[10.5px] font-extrabold transition-all cursor-pointer ${
-                      currentQuoteStatus === "rechazada" 
-                        ? "bg-rose-600 text-white shadow-sm" 
-                        : "text-slate-600 hover:text-slate-900"
-                    }`}
-                  >
-                    🔴 Cancelada
-                  </button>
-                </div>
-              </div>
-
-              {/* Communication Stage Tabs */}
-              <div>
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1.5">
-                  Selecciona la Etapa de Comunicación:
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectSalesTemplate("formal")}
-                    className={`p-2.5 rounded-xl border font-bold text-left transition-all cursor-pointer flex flex-col gap-1 ${
-                      salesTemplate === "formal"
-                        ? "bg-cyan-50 border-cyan-500 text-cyan-900 ring-2 ring-cyan-400/30"
-                        : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
-                    }`}
-                  >
-                    <span className="text-xs flex items-center gap-1.5">🌟 Envío Formal</span>
-                    <span className="text-[9.5px] font-medium text-slate-400 leading-tight">Propuesta, cuentas y PDF</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSelectSalesTemplate("aprobacion")}
-                    className={`p-2.5 rounded-xl border font-bold text-left transition-all cursor-pointer flex flex-col gap-1 ${
-                      salesTemplate === "aprobacion"
-                        ? "bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-400/30"
-                        : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
-                    }`}
-                  >
-                    <span className="text-xs flex items-center gap-1.5">🤝 Confirmación</span>
-                    <span className="text-[9.5px] font-medium text-slate-400 leading-tight">Visto bueno y pase a taller</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSelectSalesTemplate("vencimiento")}
-                    className={`p-2.5 rounded-xl border font-bold text-left transition-all cursor-pointer flex flex-col gap-1 ${
-                      salesTemplate === "vencimiento"
-                        ? "bg-purple-50 border-purple-500 text-purple-900 ring-2 ring-purple-400/30"
-                        : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
-                    }`}
-                  >
-                    <span className="text-xs flex items-center gap-1.5">⏳ Vencimiento</span>
-                    <span className="text-[9.5px] font-medium text-slate-400 leading-tight">Urgencia antes de expirar</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Client Quick Phone Contact Field */}
-              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-1.5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <label className="text-[10.5px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>WhatsApp Destinatario del Cliente:</span>
-                  </label>
-                  <span className="text-[10px] text-slate-400 font-bold">
-                    {salesTargetQuote?.cliente?.nombre || cliente.nombre || "(Cliente no especificado)"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={salesCustomPhone}
-                    onChange={(e) => setSalesCustomPhone(e.target.value)}
-                    placeholder="Ej: 991820589 o +51 991 820 589"
-                    className="flex-1 p-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono font-bold text-slate-800 focus:outline-none focus:border-cyan-500"
-                  />
-                  <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-1.5 rounded-md font-medium border border-slate-250 shrink-0">
-                    🇵🇪 Perú (+51 automático)
-                  </span>
-                </div>
-              </div>
-
-              {/* Message Editor / Preview */}
-              <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-[10.5px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <span>Mensaje Listo para Enviar:</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard?.writeText(salesCustomMessage);
-                      showNotification("Mensaje copiado al portapapeles", "success");
-                    }}
-                    className="text-[10.5px] font-bold text-cyan-600 hover:text-cyan-800 flex items-center gap-1 cursor-pointer"
-                  >
-                    <Copy className="w-3 h-3" />
-                    <span>Copiar texto</span>
-                  </button>
-                </div>
-                <textarea
-                  rows={8}
-                  value={salesCustomMessage}
-                  onChange={(e) => setSalesCustomMessage(e.target.value)}
-                  className="w-full p-3 bg-slate-50 border border-slate-250 rounded-lg text-xs font-sans text-slate-800 focus:outline-none focus:border-cyan-500 leading-relaxed font-normal"
-                />
-              </div>
-
-            </div>
-
-            {/* Modal Actions Footer */}
-            <div className="p-4 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-2.5">
-              
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleDownloadDirectPDF(salesTargetQuote)}
-                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-lg text-xs transition-all flex items-center gap-1.5 cursor-pointer border border-slate-250"
-                  title="Descargar solo el archivo PDF oficial"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>PDF ({getFullQuotationFilename(salesTargetQuote?.prefix, salesTargetQuote?.numero)}.pdf)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleSendEmail(salesTargetQuote, salesCustomMessage)}
-                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-lg text-xs transition-all flex items-center gap-1.5 cursor-pointer border border-slate-250"
-                  title="Enviar por correo electrónico"
-                >
-                  <Mail className="w-3.5 h-3.5" />
-                  <span>Correo</span>
-                </button>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleExecuteSendWhatsApp(salesTargetQuote, salesCustomMessage, salesCustomPhone)}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-lg text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
-                >
-                  <MessageCircle className="w-4 h-4 fill-white/20" />
-                  <span>Abrir WhatsApp</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleDownloadAndOpenWhatsApp(salesTargetQuote, salesCustomMessage, salesCustomPhone)}
-                  className="px-4.5 py-2 bg-gradient-to-r from-[#040D16] to-cyan-900 hover:to-cyan-800 text-cyan-300 border border-cyan-400/50 font-black rounded-lg text-xs transition-all flex items-center gap-2 cursor-pointer shadow-md active:scale-95"
-                  title="Descarga el PDF con la nomenclatura oficial y abre el WhatsApp del cliente con 1 solo clic"
-                >
-                  <Rocket className="w-4 h-4 text-cyan-400" />
-                  <span>Descargar PDF + WhatsApp (1 Clic)</span>
-                </button>
-              </div>
-
-            </div>
-
-          </div>
-        </div>
-      )}
-
       {/* CUSTOM CONFIRMATION DIALOG (Protects against iframe sandbox blocking of confirm()) */}
       {confirmModal.open && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/65 backdrop-blur-[2px] p-4 transition-all animate-fade-in font-sans">
