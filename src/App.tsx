@@ -1084,6 +1084,7 @@ export default function App() {
         const mm = String(today.getMonth() + 1).padStart(2, "0");
         const yyyy = today.getFullYear();
         const freshPrefix = `${yyyy}-${mm}-`;
+        const offlineHist: Cotizacion[] = JSON.parse(localStorage.getItem("one_hist_checkpoint1") || "[]");
         setCotizacionPrefix(freshPrefix);
         const resetNumero = getNextSuggestedInvoiceNumber(freshPrefix, offlineHist);
         const resetObs = "";
@@ -3525,7 +3526,15 @@ Para mantenerte los precios de materiales y los tiempos de entrega pactados, con
               </button>
               <button
                 type="button"
-                onClick={confirmModal.onConfirm}
+                onClick={() => {
+                  try {
+                    confirmModal.onConfirm();
+                  } catch (err) {
+                    console.error("Error al ejecutar acción confirmada:", err);
+                  } finally {
+                    setConfirmModal(prev => ({ ...prev, open: false }));
+                  }
+                }}
                 className={`px-4.5 py-2 text-white font-extrabold rounded-md transition-all cursor-pointer text-xs uppercase ${
                   confirmModal.isDanger 
                     ? 'bg-rose-600 hover:bg-rose-700 active:bg-rose-850 shadow-sm' 
